@@ -207,18 +207,18 @@ TargetedMovementGenerator<T>::Update(T &owner, const uint32 & time_diff)
         //More distance let have better performance, less distance let have more sensitive reaction at target move.
 
         // try to counter precision differences
-        if (i_destinationHolder.GetDistance3dFromDestSq(*i_target.getTarget()) >= dist * dist)
+        if (i_destinationHolder.GetDistance3dFromDestSq(*i_target.getTarget()) >= dist * dist || i_recalculateTravel)
         {
             owner.SetInFront(i_target.getTarget());         // Set new Angle For Map::
             _setTargetLocation(owner);                      //Calculate New Dest and Send data To Player
+            i_recalculateTravel = false;
         }
         // Update the Angle of the target only for Map::, no need to send packet for player
         else if (!i_angle && !owner.HasInArc(0.01f, i_target.getTarget()))
             owner.SetInFront(i_target.getTarget());
 
-        if ((owner.IsStopped() && !i_destinationHolder.HasArrived()) || i_recalculateTravel)
+        if (owner.IsStopped() && !i_destinationHolder.HasArrived())
         {
-            i_recalculateTravel = false;
             //Angle update will take place into owner.StopMoving()
             owner.SetInFront(i_target.getTarget());
 
