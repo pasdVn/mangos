@@ -3813,7 +3813,7 @@ bool Unit::AddAura(Aura *Aur)
                     case SPELL_AURA_PERIODIC_HEAL:
                     case SPELL_AURA_OBS_MOD_HEALTH:
                     case SPELL_AURA_PERIODIC_MANA_LEECH:
-                    case SPELL_AURA_OBS_MOD_MANA:
+                    case SPELL_AURA_OBS_MOD_ENERGY:
                     case SPELL_AURA_POWER_BURN_MANA:
                         break;
                     case SPELL_AURA_PERIODIC_ENERGIZE:      // all or self or clear non-stackable
@@ -4797,7 +4797,7 @@ void Unit::SendPeriodicAuraLog(SpellPeriodicAuraLogInfo *pInfo)
             data << uint32(pInfo->overDamage);              // overheal?
             data << uint8(pInfo->critical ? 1 : 0);         // new 3.1.2 critical flag
             break;
-        case SPELL_AURA_OBS_MOD_MANA:
+        case SPELL_AURA_OBS_MOD_ENERGY:
         case SPELL_AURA_PERIODIC_ENERGIZE:
             data << uint32(mod->m_miscvalue);               // power type
             data << uint32(pInfo->damage);                  // damage
@@ -12358,7 +12358,7 @@ void Unit::ProcDamageAndSpellFor( bool isVictim, Unit * pTarget, uint32 procFlag
             }
             case SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN:
             case SPELL_AURA_MANA_SHIELD:
-            case SPELL_AURA_OBS_MOD_MANA:
+            case SPELL_AURA_OBS_MOD_ENERGY:
             case SPELL_AURA_ADD_PCT_MODIFIER:
             case SPELL_AURA_DUMMY:
             {
