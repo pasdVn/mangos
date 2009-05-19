@@ -247,9 +247,10 @@ bool Creature::InitEntry(uint32 Entry, uint32 team, const CreatureData *data )
 
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);
 
-    SetSpeed(MOVE_WALK,     cinfo->speed );
-    SetSpeed(MOVE_RUN,      cinfo->speed );
-    SetSpeed(MOVE_SWIM,     cinfo->speed );
+    float m_baseSpeed = GetBaseSpeed();
+    SetSpeed(MOVE_WALK, m_baseSpeed );
+    SetSpeed(MOVE_RUN,  m_baseSpeed );
+    SetSpeed(MOVE_SWIM, m_baseSpeed );
 
     SetFloatValue(OBJECT_FIELD_SCALE_X, cinfo->scale);
 
@@ -2085,6 +2086,29 @@ bool Creature::HasSpellCooldown(uint32 spell_id) const
 bool Creature::IsInEvadeMode() const
 {
     return !i_motionMaster.empty() && i_motionMaster.GetCurrentMovementGeneratorType() == HOME_MOTION_TYPE;
+}
+
+float Creature::GetBaseSpeed() const
+{
+    if( isPet() )
+    {
+        switch( ((Pet*)this)->getPetType() )
+        {
+            case SUMMON_PET:
+            case HUNTER_PET:
+            {
+                //fixed speed fur hunter (and summon!?) pets
+                return 1.15;
+            }
+            case GUARDIAN_PET:
+            case MINI_PET:
+            {
+                //speed of CreatureInfo for guardian- and minipets
+                break;
+            }
+        }
+    }
+    return m_creatureInfo->speed;
 }
 
 bool Creature::HasSpell(uint32 spellID) const
