@@ -146,7 +146,10 @@ Unit::Unit()
         m_threatModifier[i] = 1.0f;
     m_isSorted = true;
     for (int i = 0; i < MAX_MOVE_TYPE; ++i)
+    {
         m_speed_rate[i] = 1.0f;
+        m_max_speed_rate[i] = 1.0f;
+    }
 
     m_removedAuras = 0;
     m_charmInfo = NULL;
@@ -9466,14 +9469,19 @@ void Unit::UpdateSpeed(UnitMoveType mtype, bool forced)
     int32 slow = GetMaxNegativeAuraModifier(SPELL_AURA_MOD_DECREASE_SPEED);
     if (slow)
         speed *=(100.0f + slow)/100.0f;
-    SetSpeed(mtype, speed, forced);
+
+    //store max possible speed
+    m_max_speed_rate[mtype] = speed;
+
+    // on follow TMG handels speed change
+    if( !hasUnitState(UNIT_STAT_FOLLOW) )
+        SetSpeed(mtype, speed, forced);
 }
 
 float Unit::GetSpeed( UnitMoveType mtype ) const
 {
     return m_speed_rate[mtype]*baseMoveSpeed[mtype];
 }
-
 void Unit::SetSpeed(UnitMoveType mtype, float rate, bool forced)
 {
     if (rate < 0)
