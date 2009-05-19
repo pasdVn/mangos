@@ -87,6 +87,29 @@ TargetedMovementGenerator<T>::_setTargetLocation(T &owner)
     if (owner.GetTypeId() == TYPEID_UNIT && ((Creature*)&owner)->canFly())
         ((Creature&)owner).AddMonsterMoveFlag(MONSTER_MOVE_FLY);
 }
+template<class T>
+void
+TargetedMovementGenerator<T>::_adaptSpeedToTarget(T &owner)
+{
+    float lowerCritDist = 3*i_offset;
+    float upperCritDist = 6*i_offset;
+
+    // just use MoveType MOVE_RUN for now
+    float maxSpeed	    = owner.GetMaxSpeedRate(MOVE_RUN);
+    float currSpeed     = owner.GetSpeedRate(MOVE_RUN);
+    float targetSpeed   = i_target->GetSpeedRate(MOVE_RUN);
+    if( targetSpeed > maxSpeed )
+        targetSpeed = maxSpeed;
+
+    float dist_to_target = owner.GetDistance2d( i_target.getTarget() );
+
+    // distance under lowerCritDist: adapt to target's speed
+    if( dist_to_target <= lowerCritDist && currSpeed != targetSpeed )
+        owner.SetSpeed(MOVE_RUN, targetSpeed, true);
+    // distance is greater than threashold: go to max speed
+    else if( dist_to_target > upperCritDist && currSpeed != maxSpeed )
+        owner.SetSpeed(MOVE_RUN, maxSpeed, true);
+}
 
 template<>
 void TargetedMovementGenerator<Creature>::Initialize(Creature &owner)
@@ -98,6 +121,10 @@ void TargetedMovementGenerator<Creature>::Initialize(Creature &owner)
 
     if (((Creature*)&owner)->canFly())
         owner.AddMonsterMoveFlag(MONSTER_MOVE_FLY);
+
+    // make sure that owner is at maxspeed, if TMG does not run in follow mode
+    if (!owner.hasUnitState(UNIT_STAT_FOLLOW) && owner.GetSpeedRate(MOVE_RUN) != owner.GetMaxSpeedRate(MOVE_RUN))
+        owner.SetSpeed(MOVE_RUN, owner.GetMaxSpeedRate(MOVE_RUN), true);
 
     _setTargetLocation(owner);
 }
@@ -113,6 +140,10 @@ void
 TargetedMovementGenerator<T>::Finalize(T &owner)
 {
     owner.clearUnitState(UNIT_STAT_CHASE);
+
+    // make sure that owner is at maxspeed
+    if( owner.GetSpeedRate(MOVE_RUN) != owner.GetMaxSpeedRate(MOVE_RUN) )
+        owner.SetSpeed(MOVE_RUN, owner.GetMaxSpeedRate(MOVE_RUN), true);
 }
 
 template<class T>
@@ -166,6 +197,10 @@ TargetedMovementGenerator<T>::Update(T &owner, const uint32 & time_diff)
         // put targeted movement generators on a higher priority
         if (owner.GetObjectSize())
             i_destinationHolder.ResetUpdate(50);
+
+        // adapt speed at follow mode
+        if( owner.hasUnitState(UNIT_STAT_FOLLOW) )
+            _adaptSpeedToTarget(owner);
 
         float dist = i_target->GetObjectSize() + owner.GetObjectSize() + sWorld.getRate(RATE_TARGET_POS_RECALCULATION_RANGE);
 
