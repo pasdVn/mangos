@@ -3027,7 +3027,7 @@ void Unit::_UpdateSpells( uint32 time )
 void Unit::_UpdateAutoRepeatSpell()
 {
     //check "realtime" interrupts
-    if ( (GetTypeId() == TYPEID_PLAYER && ((Player*)this)->isMoving()) || IsNonMeleeSpellCasted(false,false,true) )
+    if ( (GetTypeId() == TYPEID_PLAYER && ((Player*)this)->isMoving()) || IsNonMeleeSpellCasted(false,false,true,false) )
     {
         // cancel wand shoot
         if(m_currentSpells[CURRENT_AUTOREPEAT_SPELL]->m_spellInfo->Id != SPELL_ID_AUTOSHOT)
@@ -3085,7 +3085,8 @@ void Unit::SetCurrentCastedSpell( Spell * pSpell )
                 // break autorepeat if not Auto Shot
                 if (m_currentSpells[CURRENT_AUTOREPEAT_SPELL]->m_spellInfo->Id != SPELL_ID_AUTOSHOT)
                     InterruptSpell(CURRENT_AUTOREPEAT_SPELL);
-                m_AutoRepeatFirstCast = true;
+                if (!pSpell->IsAutoShotIgnoringSpell())
+                    m_AutoRepeatFirstCast = true;
             }
         } break;
 
@@ -3154,7 +3155,7 @@ void Unit::InterruptSpell(uint32 spellType, bool withDelayed)
     }
 }
 
-bool Unit::IsNonMeleeSpellCasted(bool withDelayed, bool skipChanneled, bool skipAutorepeat) const
+bool Unit::IsNonMeleeSpellCasted(bool withDelayed, bool skipChanneled, bool skipAutorepeat, bool skipAutoShotIgnoringSpells) const
 {
     // We don't do loop here to explicitly show that melee spell is excluded.
     // Maybe later some special spells will be excluded too.
@@ -3162,7 +3163,8 @@ bool Unit::IsNonMeleeSpellCasted(bool withDelayed, bool skipChanneled, bool skip
     // generic spells are casted when they are not finished and not delayed
     if ( m_currentSpells[CURRENT_GENERIC_SPELL] &&
         (m_currentSpells[CURRENT_GENERIC_SPELL]->getState() != SPELL_STATE_FINISHED) &&
-        (withDelayed || m_currentSpells[CURRENT_GENERIC_SPELL]->getState() != SPELL_STATE_DELAYED) )
+        (withDelayed || m_currentSpells[CURRENT_GENERIC_SPELL]->getState() != SPELL_STATE_DELAYED) &&
+        (skipAutoShotIgnoringSpells || !(m_currentSpells[CURRENT_GENERIC_SPELL]->IsAutoShotIgnoringSpell()) ) )
         return(true);
 
     // channeled spells may be delayed, but they are still considered casted
