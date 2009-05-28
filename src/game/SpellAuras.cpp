@@ -3870,6 +3870,35 @@ void Aura::HandleAuraModTotalThreat(bool apply, bool Real)
         threatMod =  float(-m_modifier.m_amount);
 
     m_target->getHostilRefManager().threatAssist(caster, threatMod);
+
+    // additional effects
+    switch( m_spellProto->SpellFamilyName )
+    {
+        case SPELLFAMILY_PRIEST:
+        {
+            if(m_spellProto->SpellFamilyFlags & 0x4000)             // Fade
+            {
+                if(!apply)
+                    return;
+                bool found = false;
+                Unit::AuraList const& vDummy = caster->GetAurasByType(SPELL_AURA_DUMMY);
+                for(Unit::AuraList::const_iterator k = vDummy.begin(); k != vDummy.end(); ++k)
+                    {
+                    if( (*k)->GetModifier()->m_miscvalue == 8 )     // search for "Improved Shadow Form"
+                    {
+                        found = roll_chance_i((*k)->GetModifier()->m_amount);
+                        continue;
+                    }
+                }
+                if( found )
+                {
+                    caster->RemoveSpellsCausingAura(SPELL_AURA_MOD_ROOT);
+                    caster->RemoveSpellsCausingAura(SPELL_AURA_MOD_DECREASE_SPEED);
+                }
+            }
+            break;
+        }
+    }
 }
 
 void Aura::HandleModTaunt(bool apply, bool Real)
