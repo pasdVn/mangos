@@ -5442,8 +5442,8 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
             // Lock and Load
             if ( dummySpell->SpellIconID == 3579 )
             {
-                // Proc only from periodic (from trap activation proc another aura of this spell)
-                if (!(procFlag & PROC_FLAG_ON_DO_PERIODIC) || !roll_chance_i(triggerAmount))
+                // Proc only from periodic serpent sting ticks (from trap activation proc another aura of this spell)
+                if (!(procFlag & PROC_FLAG_ON_DO_PERIODIC) || !(procSpell->SpellFamilyFlags & 0x4000) || !roll_chance_i(triggerAmount))
                     return false;
                 triggered_spell_id = 56453;
                 target = this;
