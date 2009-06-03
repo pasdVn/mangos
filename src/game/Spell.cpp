@@ -1846,9 +1846,22 @@ void Spell::SetTargetMap(uint32 i,uint32 cur,UnitList& TagUnitMap)
             if(m_spellInfo->Effect[i] != SPELL_EFFECT_DUEL)
                 TagUnitMap.push_back(m_caster);
         }break;
-        case TARGET_SINGLE_ENEMY:
+        case TARGET_PERIODIC_TRIGGER_AURA:
         {
-            if(Unit* pUnitTarget = m_caster->SelectMagnetTarget(m_targets.getUnitTarget(), m_spellInfo))
+            Unit* pTarget;
+
+            // search for dummy aura link, that contains the target
+            Aura* pAura = NULL;
+            if(m_triggeredByAuraSpell)
+                pAura = m_caster->GetLinkedDummyAura(m_triggeredByAuraSpell->Id);
+            if(pAura)
+                pTarget = pAura->GetTarget();
+            else
+            {
+                uint64 guid = m_caster->GetTypeId()==TYPEID_PLAYER ? ((Player*)m_caster)->GetSelection() : m_caster->GetUInt64Value(UNIT_FIELD_TARGET);
+                pTarget = ObjectAccessor::GetUnit(*m_caster, guid);
+            }
+            if(Unit* pUnitTarget = m_caster->SelectMagnetTarget(pTarget, m_spellInfo))
             {
                 m_targets.setUnitTarget(pUnitTarget);
                 TagUnitMap.push_back(pUnitTarget);

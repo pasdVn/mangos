@@ -1034,7 +1034,7 @@ enum Targets
     TARGET_DUELVSPLAYER_COORDINATES    = 63,
     TARGET_BEHIND_VICTIM               = 65,                // uses in teleport behind spells, caster/target dependent from spell effect
     TARGET_DYNAMIC_OBJECT_COORDINATES  = 76,
-    TARGET_SINGLE_ENEMY                = 77,
+    TARGET_PERIODIC_TRIGGER_AURA       = 77,				// used for Spells triggered by SPELL_AURA_PERIODIC_TRIGGER_SPELL
     TARGET_SELF2                       = 87,
     TARGET_DIRECTLY_FORWARD            = 89,
     TARGET_NONCOMBAT_PET               = 90,
