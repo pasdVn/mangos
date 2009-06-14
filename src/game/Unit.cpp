@@ -5491,6 +5491,13 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                 target = this;
                 break;
             }
+            // Focused Fire, kill command proc
+            if ( dummySpell->Id == 35029 || dummySpell->Id == 35030 )
+            {
+                triggered_spell_id = dummySpell->Id == 35029 ? 60110 : 60113;
+                target = this;
+                break;
+            }
             break;
         }
         case SPELLFAMILY_PALADIN:

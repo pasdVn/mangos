@@ -2168,6 +2168,14 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 caster->RemoveAurasDueToSpell(34027);
                 return;
             }
+            case 34026:
+            {
+                // kill command, remove focused fire bonus
+                if(!caster)
+                    return;
+                caster->RemoveAurasDueToSpell(60110);
+                caster->RemoveAurasDueToSpell(60113);
+            }
         }
 
         if (caster && m_removeMode == AURA_REMOVE_BY_DEATH)
