@@ -2283,6 +2283,7 @@ void Spell::cast(bool skipCheck)
         }
     }
 
+	uint32 m_castAtOnceSpell = 0;
     switch(m_spellInfo->SpellFamilyName)
     {
         case SPELLFAMILY_GENERIC:
@@ -2307,9 +2308,20 @@ void Spell::cast(bool skipCheck)
             if (m_spellInfo->Mechanic == MECHANIC_SHIELD &&
                 (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0000000000000001)))
                 m_preCastSpell = 6788;                      // Weakened Soul
-            // Dispersion (transform)
-            if (m_spellInfo->Id == 47585)
-                m_preCastSpell = 60069;                     // Dispersion (mana regen)
+            switch (m_spellInfo->Id)
+            {
+                case 47585: m_preCastSpell = 60069;     break;          // Dispersion (transform -> mana regen)
+                case 15237: m_castAtOnceSpell = 23455;  break;          // Holy Nova (damage -> heal)
+                case 15430: m_castAtOnceSpell = 23458;  break;
+                case 15431: m_castAtOnceSpell = 23459;  break;
+                case 27799: m_castAtOnceSpell = 27803;  break;
+                case 27800: m_castAtOnceSpell = 27804;  break;
+                case 27801: m_castAtOnceSpell = 27805;  break;
+                case 25331: m_castAtOnceSpell = 25329;  break;
+                case 48077: m_castAtOnceSpell = 48075;  break;
+                case 48078: m_castAtOnceSpell = 48076;  break;
+                default:break;
+            }
             break;
         }
         case SPELLFAMILY_PALADIN:
@@ -2332,6 +2344,10 @@ void Spell::cast(bool skipCheck)
         default:
             break;
     }
+
+    // cast atOnce Spell
+    if (m_castAtOnceSpell)
+        m_caster->CastSpell(NULL, m_castAtOnceSpell,true, m_CastItem);
 
     // Conflagrate - consumes immolate
     if ((m_spellInfo->TargetAuraState == AURA_STATE_IMMOLATE) && m_targets.getUnitTarget())
