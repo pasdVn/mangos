@@ -5420,8 +5420,8 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                 if(!procSpell)
                     return false;
 
-                // mana cost save
-                int32 mana = procSpell->manaCost + procSpell->ManaCostPercentage * GetCreateMana() / 100;
+                // mana cost save, hardcoded value for "explosive shot"
+                int32 mana = procSpell->manaCost + int32((procSpell->Id == 53352 ? 2.333f : procSpell->ManaCostPercentage) * GetCreateMana() / 100);
                 basepoints0 = mana * 40/100;
                 if(basepoints0 <= 0)
                     return false;
