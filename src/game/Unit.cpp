@@ -2315,7 +2315,7 @@ uint32 Unit::CalculateDamage (WeaponAttackType attType, bool normalized)
 
 float Unit::CalculateLevelPenalty(SpellEntry const* spellProto) const
 {
-    if(spellProto->spellLevel <= 0)
+    if(spellProto->spellLevel <= 0 || spellProto->Id == 33110)      // Prayer of Mending Hack
         return 1.0f;
 
     float LvlPenalty = 0.0f;
@@ -8351,8 +8351,8 @@ uint32 Unit::SpellCriticalHealingBonus(SpellEntry const *spellProto, uint32 dama
 
 uint32 Unit::SpellHealingBonus(Unit *pVictim, SpellEntry const *spellProto, uint32 healamount, DamageEffectType damagetype, uint32 stack)
 {
-    // No heal amount for this class spells
-    if (spellProto->DmgClass == SPELL_DAMAGE_CLASS_NONE)
+    // No heal amount for this class spells + lifebloom hack
+    if (spellProto->DmgClass == SPELL_DAMAGE_CLASS_NONE && spellProto->Id != 33778)
         return healamount;
 
     // For totems get healing bonus from owner (statue isn't totem in fact)
