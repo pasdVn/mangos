@@ -2327,7 +2327,8 @@ void Spell::cast(bool skipCheck)
                AddPrecastSpell(6788);                      // Weakened Soul
             switch (m_spellInfo->Id)
             {
-                case 47585: AddPrecastSpell(60069);     break;          // Dispersion (transform -> mana regen)
+                case 47585: AddPrecastSpell(60069);
+                            AddPrecastSpell(63230);     break;          // Dispersion (transform -> mana regen & mechanic immunity)
                 case 15237: m_castAtOnceSpell = 23455;  break;          // Holy Nova (damage -> heal)
                 case 15430: m_castAtOnceSpell = 23458;  break;
                 case 15431: m_castAtOnceSpell = 23459;  break;
