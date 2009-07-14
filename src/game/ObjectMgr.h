@@ -572,6 +572,7 @@ class ObjectMgr
         uint32 GeneratePetNumber();
 
         uint32 CreateItemText(std::string text);
+        void AddItemText(uint32 itemTextId, std::string text) { mItemTexts[itemTextId] = text; }
         std::string GetItemText( uint32 id )
         {
             ItemTextMap::const_iterator itr = mItemTexts.find( id );
@@ -843,6 +844,7 @@ class ObjectMgr
     private:
         void LoadScripts(ScriptMapMap& scripts, char const* tablename);
         void CheckScripts(ScriptMapMap const& scripts,std::set<int32>& ids);
+        void LoadCreatureAddons(SQLStorage& creatureaddons, char const* entryName, char const* comment);
         void ConvertCreatureAddonAuras(CreatureDataAddon* addon, char const* table, char const* guidEntryStr);
         void LoadQuestRelationsHelper(QuestRelations& map,char const* table);
 
