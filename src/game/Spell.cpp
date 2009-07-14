@@ -4076,31 +4076,6 @@ SpellCastResult Spell::CheckCast(bool strict)
                 }
                 break;
             }
-            case SPELL_EFFECT_TAMECREATURE:
-            {
-                if (m_caster->GetTypeId() != TYPEID_PLAYER)
-                    return SPELL_FAILED_BAD_TARGETS;
-
-                if (!m_targets.getUnitTarget() || m_targets.getUnitTarget()->GetTypeId() == TYPEID_PLAYER)
-                    return SPELL_FAILED_BAD_IMPLICIT_TARGETS;
-
-                Creature* target = (Creature*)m_targets.getUnitTarget();
-
-                if (target->getLevel() > m_caster->getLevel())
-                    return SPELL_FAILED_HIGHLEVEL;
-
-                // use SMSG_PET_TAME_FAILURE?
-                if (!target->GetCreatureInfo()->isTameable (((Player*)m_caster)->CanTameExoticPets()))
-                    return SPELL_FAILED_BAD_TARGETS;
-
-                if(m_caster->GetPetGUID())
-                    return SPELL_FAILED_ALREADY_HAVE_SUMMON;
-
-                if(m_caster->GetCharmGUID())
-                    return SPELL_FAILED_ALREADY_HAVE_CHARM;
-
-                break;
-            }
             case SPELL_EFFECT_LEARN_SPELL:
             {
                 if(m_spellInfo->EffectImplicitTargetA[i] != TARGET_PET)
@@ -4403,6 +4378,31 @@ SpellCastResult Spell::CheckCast(bool strict)
                         if(m_caster->GetTypeId() != TYPEID_PLAYER || !((Player*)m_caster)->IsInFeralForm())
                             return SPELL_FAILED_ONLY_SHAPESHIFT;
                         break;
+                    // tame beast
+                    case 1515:
+                    {
+                        if (m_caster->GetTypeId() != TYPEID_PLAYER)
+                            return SPELL_FAILED_BAD_TARGETS;
+
+                        if (!m_targets.getUnitTarget() || m_targets.getUnitTarget()->GetTypeId() == TYPEID_PLAYER)
+                            return SPELL_FAILED_BAD_IMPLICIT_TARGETS;
+
+                        Creature* target = (Creature*)m_targets.getUnitTarget();
+
+                        if (target->getLevel() > m_caster->getLevel())
+                            return SPELL_FAILED_HIGHLEVEL;
+
+                         // use SMSG_PET_TAME_FAILURE?
+                         if (!target->GetCreatureInfo()->isTameable (((Player*)m_caster)->CanTameExoticPets()))
+                             return SPELL_FAILED_BAD_TARGETS;
+
+                         if(m_caster->GetPetGUID())
+                             return SPELL_FAILED_ALREADY_HAVE_SUMMON;
+
+                         if(m_caster->GetCharmGUID())
+                             return SPELL_FAILED_ALREADY_HAVE_CHARM;
+                         break;
+                    }
                     default:
                         break;
                 }
