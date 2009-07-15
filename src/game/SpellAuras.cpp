@@ -2021,13 +2021,28 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
 
     Unit* caster = GetCaster();
 
-    // link dummyauras to caster (for target selection from periodic triggered spells or other special effects)
-    if( !IsAreaAura() && !m_permanent)
+    // link dummyauras to caster for target selection from periodic triggered spells
+    if(!m_permanent)
     {
-        if(apply)
-            caster->AddDummyAuraLink(this);
-        else
-            caster->RemoveDummyAuraLink(this);
+        SpellEntry const* m_spell = GetSpellProto();
+        for(uint8 i =0; i<3; i++)
+        {
+            if( m_spell->Effect[i] == SPELL_EFFECT_APPLY_AURA &&
+                (m_spell->EffectApplyAuraName[i] == SPELL_AURA_PERIODIC_TRIGGER_SPELL
+                || m_spell->EffectApplyAuraName[i] == SPELL_AURA_PERIODIC_TRIGGER_SPELL_WITH_VALUE) )
+            {
+                if(apply)
+                {
+                    caster->AddDummyAuraLink(this);
+                    if( IsAreaAura() )
+                        sLog.outDebug("Spell %i applying a periodic spell trigger aura has aoe target link dummy aura. Not supported!",GetId());
+                }
+                else
+                    caster->RemoveDummyAuraLink(this);
+            }
+            else if(m_spell->Effect[i] == SPELL_EFFECT_APPLY_AURA && m_spell->EffectApplyAuraName[i] == SPELL_AURA_DUMMY && GetEffIndex() != i)
+                sLog.outDebug("Spell %i applying a periodic spell trigger aura has 2 dummy auras. May cause problems with target selection!");
+        }
     }
 
     // AT APPLY

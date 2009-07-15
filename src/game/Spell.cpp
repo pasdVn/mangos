@@ -1857,8 +1857,14 @@ void Spell::SetTargetMap(uint32 i,uint32 cur,UnitList& TagUnitMap)
                 pTarget = pAura->GetTarget();
             else
             {
-                uint64 guid = m_caster->GetTypeId()==TYPEID_PLAYER ? ((Player*)m_caster)->GetSelection() : m_caster->GetUInt64Value(UNIT_FIELD_TARGET);
-                pTarget = ObjectAccessor::GetUnit(*m_caster, guid);
+                // backup sollution (e.g. target in evade mode and dummy aura is removed)
+                if(m_caster->GetTypeId()==TYPEID_PLAYER)
+                {
+                    uint64 guid = ((Player*)m_caster)->GetSelection();
+                    pTarget = ObjectAccessor::GetUnit(*m_caster, guid);
+                }
+                else
+                    pTarget = m_targets.getUnitTarget();
             }
             if(Unit* pUnitTarget = m_caster->SelectMagnetTarget(pTarget, m_spellInfo))
             {
@@ -3270,12 +3276,12 @@ void Spell::SendChannelStart(uint32 duration)
 {
     WorldObject* target = NULL;
 
-    // select first not resisted target from target list for _0_ effect
+    // select first not resisted target from target list
     if(!m_UniqueTargetInfo.empty())
     {
         for(std::list<TargetInfo>::const_iterator itr = m_UniqueTargetInfo.begin(); itr != m_UniqueTargetInfo.end(); ++itr)
         {
-            if( (itr->effectMask & (1 << 0)) && itr->reflectResult == SPELL_MISS_NONE && itr->targetGUID != m_caster->GetGUID())
+            if( itr->reflectResult == SPELL_MISS_NONE && itr->targetGUID != m_caster->GetGUID())
             {
                 target = ObjectAccessor::GetUnit(*m_caster, itr->targetGUID);
                 break;
@@ -3305,8 +3311,9 @@ void Spell::SendChannelStart(uint32 duration)
     }
 
     m_timer = duration;
-    if(target)
-        m_caster->SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT, target->GetGUID());
+    if(!target)
+        target = m_caster;
+    m_caster->SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT, target->GetGUID());
     m_caster->SetUInt32Value(UNIT_CHANNEL_SPELL, m_spellInfo->Id);
 }
 

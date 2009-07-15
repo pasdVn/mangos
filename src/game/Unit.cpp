@@ -3466,6 +3466,8 @@ bool Unit::AddAura(Aura *Aur)
                 {
                     // DoT/HoT/etc
                     case SPELL_AURA_PERIODIC_DAMAGE:    // allow stack
+                    case SPELL_AURA_DUMMY:
+                    case SPELL_AURA_PERIODIC_TRIGGER_SPELL:
                     case SPELL_AURA_PERIODIC_DAMAGE_PERCENT:
                     case SPELL_AURA_PERIODIC_LEECH:
                     case SPELL_AURA_PERIODIC_HEAL:
@@ -3474,6 +3476,7 @@ bool Unit::AddAura(Aura *Aur)
                     case SPELL_AURA_PERIODIC_ENERGIZE:
                     case SPELL_AURA_OBS_MOD_ENERGY:
                     case SPELL_AURA_POWER_BURN_MANA:
+                    case SPELL_AURA_PERIODIC_DUMMY:
                         break;
                     default:                            // not allow
                         // can be only single (this check done at _each_ aura add
