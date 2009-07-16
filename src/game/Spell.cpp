@@ -811,8 +811,8 @@ void Spell::prepareDataForTriggerSystem()
                 if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x000000101001E000))
                     m_canTrigger = true;
                 break;
-            case SPELLFAMILY_HUNTER:  // Hunter Rapid Killing/Explosive Trap Effect/Immolation Trap Effect/Frost Trap Aura/Snake Trap Effect/Explosive Shot
-                if ((m_spellInfo->SpellFamilyFlags & UI64LIT(0x0100200000000214)) ||
+            case SPELLFAMILY_HUNTER:  // Hunter Rapid Killing, Explosive Shot need do it
+                if ((m_spellInfo->SpellFamilyFlags & UI64LIT(0x0100000000000000)) ||
                     m_spellInfo->SpellFamilyFlags2 & 0x200)
                     m_canTrigger = true;
                 break;
@@ -863,9 +863,10 @@ void Spell::prepareDataForTriggerSystem()
             }
             break;
     }
-    // Hunter traps spells (for Entrapment trigger)
+    // Hunter traps spells
     // Gives your Immolation Trap, Frost Trap, Explosive Trap, and Snake Trap ....
-    if (m_spellInfo->SpellFamilyName == SPELLFAMILY_HUNTER && (m_spellInfo->SpellFamilyFlags & UI64LIT(0x000020000000001C)))
+    if (m_spellInfo->SpellFamilyName == SPELLFAMILY_HUNTER &&
+        (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0000200000002018) || m_spellInfo->SpellFamilyFlags2 & 0x00024000) )
         m_procAttacker |= PROC_FLAG_ON_TRAP_ACTIVATION;
 }
 

@@ -33,6 +33,7 @@ pkgdata_DATA = \
 	custom/patch_lightwell_pasdVn.sql \
 	custom/patch_renewed_hope_pasdVn.sql \
 	custom/patch_lock_and_load_3.1.3_pasdVn.sql \
+	custom/patch_procflags_entrapment_pasdVn.sql \
 	2008_12_22_01_mangos_creature_equip_template.sql \
 	2008_12_22_02_characters_character_pet.sql \
 	2008_12_22_03_mangos_item_template.sql \
@@ -265,6 +266,7 @@ EXTRA_DIST = \
 	custom/patch_lightwell_pasdVn.sql \
 	custom/patch_renewed_hope_pasdVn.sql \
 	custom/patch_lock_and_load_3.1.3_pasdVn.sql \
+	custom/patch_procflags_entrapment_pasdVn.sql \
 	2008_12_22_01_mangos_creature_equip_template.sql \
 	2008_12_22_02_characters_character_pet.sql \
 	2008_12_22_03_mangos_item_template.sql \
