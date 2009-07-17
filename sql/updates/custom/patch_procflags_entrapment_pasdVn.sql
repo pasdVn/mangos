@@ -1,7 +1,7 @@
 /*Entrapment*/
-DELETE FROM `spell_proc_event` WHERE entry IN (19384, 19387, 19388);
+DELETE FROM `spell_proc_event` WHERE entry IN (19184, 19387, 19388);
 INSERT INTO `spell_proc_event` (`entry`, `SchoolMask`, `SpellFamilyName`, `SpellFamilyMask0`, `SpellFamilyMask1`, `SpellFamilyMask2`, `procFlags`, `procEx`, `ppmRate`, `CustomChance`, `Cooldown`) VALUES
-(19384, 0, 9, 16, 8192, 147456, 0, 0, 0, 0, 0),
+(19184, 0, 9, 16, 8192, 147456, 0, 0, 0, 0, 0),
 (19387, 0, 9, 16, 8192, 147456, 0, 0, 0, 0, 0),
 (19388, 0, 9, 16, 8192, 147456, 0, 0, 0, 0, 0);
 
