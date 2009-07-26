@@ -3754,7 +3754,9 @@ SpellCastResult Spell::CheckCast(bool strict)
             // this case can be triggered if rank not found (too low-level target for first rank)
             if(m_caster->GetTypeId() == TYPEID_PLAYER && !IsPassiveSpell(m_spellInfo->Id) && !m_CastItem)
                 for(int i=0;i<3;++i)
-                    if(IsPositiveEffect(m_spellInfo->Id, i) && m_spellInfo->Effect[i] == SPELL_EFFECT_APPLY_AURA)
+                    if( IsPositiveEffect(m_spellInfo->Id, i) &&
+                        IsUnitTargetUsingTarget(m_spellInfo->EffectImplicitTargetA[i], m_spellInfo->EffectImplicitTargetB[i]) &&
+                        m_spellInfo->Effect[i] == SPELL_EFFECT_APPLY_AURA )
                         if(target->getLevel() + 10 < m_spellInfo->spellLevel)
                             return SPELL_FAILED_LOWLEVEL;
         }
