@@ -87,6 +87,7 @@ TargetedMovementGenerator<T>::_setTargetLocation(T &owner)
     if (owner.GetTypeId() == TYPEID_UNIT && ((Creature*)&owner)->canFly())
         ((Creature&)owner).AddMonsterMoveFlag(MONSTER_MOVE_FLY);
 }
+
 template<class T>
 void
 TargetedMovementGenerator<T>::_adaptSpeedToTarget(T &owner)
@@ -94,26 +95,23 @@ TargetedMovementGenerator<T>::_adaptSpeedToTarget(T &owner)
     float lowerCritDist = 3*i_offset;
     float upperCritDist = 6*i_offset;
 
-    float max_speed		= owner.GetMaxSpeedRate(MOVE_RUN);
-    float curr_speed	= owner.GetSpeedRate(MOVE_RUN);
-    float target_speed	= i_target->GetSpeedRate(MOVE_RUN);
+    // just use MoveType MOVE_RUN for now
+    float maxSpeed	    = owner.GetMaxSpeedRate(MOVE_RUN);
+    float currSpeed     = owner.GetSpeedRate(MOVE_RUN);
+    float targetSpeed   = i_target->GetSpeedRate(MOVE_RUN);
+    if( targetSpeed > maxSpeed )
+        targetSpeed = maxSpeed;
 
     float dist_to_target = owner.GetDistance2d( i_target.getTarget() );
 
-    bool force_reset = false;
-
-    // no comment
-    if( curr_speed > max_speed )
-        force_reset;
-
-    // owner at maxspeed and under upperCritDist: adapt to owners speed
-    else if( (curr_speed == max_speed && target_speed < max_speed || force_reset)&& dist_to_target < lowerCritDist)
-        owner.SetSpeed(MOVE_RUN, target_speed, true);
-
-    // owner not moving at max speed, but distance is greater than threashold: go to max speed
-    else if ( (curr_speed < max_speed || force_reset) &&	dist_to_target > upperCritDist )
-        owner.SetSpeed(MOVE_RUN, max_speed, true);
+    // distance under lowerCritDist: adapt to target's speed
+    if( dist_to_target <= lowerCritDist && currSpeed != targetSpeed )
+        owner.SetSpeed(MOVE_RUN, targetSpeed, true);
+    // distance is greater than threashold: go to max speed
+    else if( dist_to_target > upperCritDist && currSpeed != maxSpeed )
+        owner.SetSpeed(MOVE_RUN, maxSpeed, true);
 }
+
 template<>
 void TargetedMovementGenerator<Creature>::Initialize(Creature &owner)
 {
