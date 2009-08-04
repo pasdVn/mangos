@@ -151,13 +151,13 @@ bool ChatHandler::HandleReloadAllSpellCommand(const char*)
 {
     HandleReloadSkillDiscoveryTemplateCommand("a");
     HandleReloadSkillExtraItemTemplateCommand("a");
-    HandleReloadSpellAffectCommand("a");
     HandleReloadSpellAreaCommand("a");
     HandleReloadSpellChainCommand("a");
     HandleReloadSpellElixirCommand("a");
     HandleReloadSpellLearnSpellCommand("a");
     HandleReloadSpellProcEventCommand("a");
     HandleReloadSpellBonusesCommand("a");
+    HandleReloadSpellProcItemEnchantCommand("a");
     HandleReloadSpellScriptTargetCommand("a");
     HandleReloadSpellTargetPositionCommand("a");
     HandleReloadSpellThreatsCommand("a");
@@ -481,14 +481,6 @@ bool ChatHandler::HandleReloadSkillFishingBaseLevelCommand(const char* /*args*/)
     return true;
 }
 
-bool ChatHandler::HandleReloadSpellAffectCommand(const char*)
-{
-    sLog.outString( "Re-Loading SpellAffect definitions..." );
-    spellmgr.LoadSpellAffects();
-    SendGlobalSysMessage("DB table `spell_affect` (spell mods apply requirements) reloaded.");
-    return true;
-}
-
 bool ChatHandler::HandleReloadSpellAreaCommand(const char*)
 {
     sLog.outString( "Re-Loading SpellArea Data..." );
@@ -534,6 +526,14 @@ bool ChatHandler::HandleReloadSpellBonusesCommand(const char*)
     sLog.outString( "Re-Loading Spell Bonus Data..." );
     spellmgr.LoadSpellBonusess();
     SendGlobalSysMessage("DB table `spell_bonus_data` (spell damage/healing coefficients) reloaded.");
+    return true;
+}
+
+bool ChatHandler::HandleReloadSpellProcItemEnchantCommand(const char*)
+{
+    sLog.outString( "Re-Loading Spell Proc Item Enchant..." );
+    spellmgr.LoadSpellProcItemEnchant();
+    SendGlobalSysMessage("DB table `spell_proc_item_enchant` (item enchantment ppm) reloaded.");
     return true;
 }
 
@@ -4371,6 +4371,8 @@ bool ChatHandler::HandleResetLevelCommand(const char * args)
         ? sWorld.getConfig(CONFIG_START_PLAYER_LEVEL)
         : sWorld.getConfig(CONFIG_START_HEROIC_PLAYER_LEVEL);
 
+    target->_ApplyAllLevelScaleItemMods(false);
+
     target->SetLevel(start_level);
     target->InitRunes();
     target->InitStatsForLevel(true);
@@ -4378,6 +4380,8 @@ bool ChatHandler::HandleResetLevelCommand(const char * args)
     target->InitGlyphsForLevel();
     target->InitTalentForLevel();
     target->SetUInt32Value(PLAYER_XP,0);
+
+    target->_ApplyAllLevelScaleItemMods(true);
 
     // reset level for pet
     if(Pet* pet = target->GetPet())
@@ -4835,8 +4839,9 @@ bool ChatHandler::HandleQuestComplete(const char* args)
         }
         else if(creature > 0)
         {
-            for(uint16 z = 0; z < creaturecount; ++z)
-                player->KilledMonster(creature,0);
+            if(CreatureInfo const* cInfo = objmgr.GetCreatureTemplate(creature))
+                for(uint16 z = 0; z < creaturecount; ++z)
+                    player->KilledMonster(cInfo,0);
         }
         else if(creature < 0)
         {

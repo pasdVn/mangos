@@ -453,7 +453,7 @@ uint32 Unit::DealDamage(Unit *pVictim, uint32 damage, CleanDamage const* cleanDa
 
         // some critters required for quests
         if(GetTypeId() == TYPEID_PLAYER)
-            ((Player*)this)->KilledMonster(pVictim->GetEntry(),pVictim->GetGUID());
+            ((Player*)this)->KilledMonster(cInfo ,pVictim->GetGUID());
 
         return damage;
     }
@@ -650,7 +650,9 @@ uint32 Unit::DealDamage(Unit *pVictim, uint32 damage, CleanDamage const* cleanDa
             if(!cVictim->isPet())
             {
                 cVictim->DeleteThreatList();
-                cVictim->SetUInt32Value(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
+                // only lootable if it has loot or can drop gold
+                if(cVictim->GetCreatureInfo()->lootid || cVictim->GetCreatureInfo()->maxgold > 0)
+                    cVictim->SetUInt32Value(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
             }
             // Call creature just died function
             if (cVictim->AI())
@@ -3151,8 +3153,8 @@ void Unit::InterruptSpell(uint32 spellType, bool withDelayed)
         // send autorepeat cancel message for autorepeat spells
         if (spellType == CURRENT_AUTOREPEAT_SPELL)
         {
-            if(GetTypeId()==TYPEID_PLAYER)
-                ((Player*)this)->SendAutoRepeatCancel();
+            if(GetTypeId() == TYPEID_PLAYER)
+                ((Player*)this)->SendAutoRepeatCancel(this);
         }
 
         if (m_currentSpells[spellType]->getState() != SPELL_STATE_FINISHED)
@@ -3548,6 +3550,10 @@ bool Unit::AddAura(Aura *Aur)
 
     Aur->ApplyModifier(true,true);
     sLog.outDebug("Aura %u now is in use", aurName);
+
+    if(IsSpellLastAuraEffect(aurSpellInfo,Aur->GetEffIndex()))
+        Aur->HandleSpellSpecificBoosts(true);
+
     return true;
 }
 
@@ -3893,13 +3899,24 @@ void Unit::RemoveAurasWithInterruptFlags(uint32 flags)
     }
 }
 
-void Unit::RemoveNotOwnSingleTargetAuras()
+void Unit::RemoveNotOwnSingleTargetAuras(uint32 newPhase)
 {
     // single target auras from other casters
     for (AuraMap::iterator iter = m_Auras.begin(); iter != m_Auras.end(); )
     {
         if (iter->second->GetCasterGUID()!=GetGUID() && IsSingleTargetSpell(iter->second->GetSpellProto()))
-            RemoveAura(iter);
+        {
+            if(!newPhase)
+                RemoveAura(iter);
+            else
+            {
+                Unit* caster = iter->second->GetCaster();
+                if(!caster || !caster->InSamePhase(newPhase))
+                    RemoveAura(iter);
+                else
+                    ++iter;
+            }
+        }
         else
             ++iter;
     }
@@ -3909,16 +3926,31 @@ void Unit::RemoveNotOwnSingleTargetAuras()
     for (AuraList::iterator iter = scAuras.begin(); iter != scAuras.end(); )
     {
         Aura* aura = *iter;
-        if (aura->GetTarget()!=this)
+        if (aura->GetTarget() != this && !aura->GetTarget()->InSamePhase(newPhase))
         {
             scAuras.erase(iter);                            // explicitly remove, instead waiting remove in RemoveAura
-            aura->GetTarget()->RemoveAura(aura->GetId(),aura->GetEffIndex());
+            aura->GetTarget()->RemoveAura(aura);
             iter = scAuras.begin();
         }
         else
             ++iter;
     }
 
+}
+
+void Unit::RemoveAura(Aura* aura)
+{
+    AuraMap::iterator i = m_Auras.lower_bound(spellEffectPair(aura->GetId(), aura->GetEffIndex()));
+    AuraMap::iterator upperBound = m_Auras.upper_bound(spellEffectPair(aura->GetId(), aura->GetEffIndex()));
+    for (; i != upperBound; ++i)
+    {
+        if (i->second == aura)
+        {
+            RemoveAura(i);
+            return;
+        }
+    }
+    sLog.outDebug("Trying to remove aura id %u effect %u by pointer but aura not found on target", aura->GetId(), aura->GetEffIndex());
 }
 
 void Unit::RemoveAura(AuraMap::iterator &i, AuraRemoveMode mode)
@@ -3959,7 +3991,14 @@ void Unit::RemoveAura(AuraMap::iterator &i, AuraRemoveMode mode)
 
     sLog.outDebug("Aura %u now is remove mode %d",Aur->GetModifier()->m_auraname, mode);
     Aur->ApplyModifier(false,true);
-    Aur->_RemoveAura();
+
+    if(Aur->_RemoveAura())
+    {
+        // last aura in stack removed
+        if(IsSpellLastAuraEffect(Aur->GetSpellProto(),Aur->GetEffIndex()))
+            Aur->HandleSpellSpecificBoosts(false);
+    }
+
     delete Aur;
 
     if(caster_channeled)
@@ -4540,13 +4579,12 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                     triggered_spell_id = 25997;
                     break;
                 }
-                // Sweeping Strikes
-                case 12328:
+                // Sweeping Strikes (NPC spells may be)
                 case 18765:
                 case 35429:
                 {
                     // prevent chain of triggered spell from same triggered spell
-                    if(procSpell && procSpell->Id==26654)
+                    if(procSpell && procSpell->Id == 26654)
                         return false;
 
                     target = SelectNearbyTarget();
@@ -5082,6 +5120,21 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                 basepoints0 = GetShieldBlockValue() * triggerAmount / 100;
                 break;
             }
+
+            // Sweeping Strikes
+            if (dummySpell->Id == 12328)
+            {
+                // prevent chain of triggered spell from same triggered spell
+                if(procSpell && procSpell->Id == 26654)
+                    return false;
+
+                target = SelectNearbyTarget();
+                if(!target)
+                    return false;
+
+                triggered_spell_id = 26654;
+                break;
+            }
             break;
         }
         case SPELLFAMILY_WARLOCK:
@@ -5606,7 +5659,6 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                 case 31877:
                 case 31878:
                     target = this;
-                    basepoints0 = GetCreatePowers(POWER_MANA) * 25 / 100;
                     triggered_spell_id = 31930;
 
                     // Replenishment
@@ -6240,7 +6292,7 @@ bool Unit::HandleProcTriggerSpell(Unit *pVictim, uint32 damage, Aura* triggeredB
     Item* castItem = triggeredByAura->GetCastItemGUID() && GetTypeId()==TYPEID_PLAYER
         ? ((Player*)this)->GetItemByGuid(triggeredByAura->GetCastItemGUID()) : NULL;
 
-    // Try handle uncnown trigger spells
+    // Try handle unknown trigger spells
     if (sSpellStore.LookupEntry(trigger_spell_id)==NULL)
     {
         switch (auraSpellInfo->SpellFamilyName)
@@ -6875,6 +6927,17 @@ bool Unit::HandleProcTriggerSpell(Unit *pVictim, uint32 damage, Aura* triggeredB
             // Remove cooldown on Shield Slam
             if (GetTypeId() == TYPEID_PLAYER)
                 ((Player*)this)->RemoveSpellCategoryCooldown(1209, true);
+            break;
+        }
+        // Maelstrom Weapon
+        case 53817:
+        {
+            // have rank dependent proc chance, ignore too often cases
+            // PPM = 2.5 * (rank of talent), 
+            uint32 rank = spellmgr.GetSpellRank(auraSpellInfo->Id);
+            // 5 rank -> 100% 4 rank -> 80% and etc from full rate
+            if(!roll_chance_i(20*rank))
+                return false;
             break;
         }
         // Brain Freeze
@@ -7547,6 +7610,34 @@ void Unit::RemoveAllAttackers()
     }
 }
 
+bool Unit::HasAuraStateForCaster(AuraState flag, uint64 caster) const
+{
+    if(!HasAuraState(flag))
+        return false;
+
+    // single per-caster aura state
+    if(flag == AURA_STATE_CONFLAGRATE)
+    {
+        Unit::AuraList const& dotList = GetAurasByType(SPELL_AURA_PERIODIC_DAMAGE);
+        for(Unit::AuraList::const_iterator i = dotList.begin(); i != dotList.end(); ++i)
+        {
+            if ((*i)->GetSpellProto()->SpellFamilyName == SPELLFAMILY_WARLOCK &&
+                (*i)->GetCasterGUID() == caster &&
+                //  Immolate
+                (((*i)->GetSpellProto()->SpellFamilyFlags & UI64LIT(0x0000000000000004)) ||
+                // Shadowflame
+                ((*i)->GetSpellProto()->SpellFamilyFlags2 & 0x00000002)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    return true;
+}
+
 void Unit::ModifyAuraState(AuraState flag, bool apply)
 {
     if (apply)
@@ -7599,7 +7690,6 @@ void Unit::ModifyAuraState(AuraState flag, bool apply)
         }
     }
 }
-
 Unit *Unit::GetOwner() const
 {
     if(uint64 ownerid = GetOwnerGUID())
@@ -7726,19 +7816,24 @@ int32 Unit::DealHeal(Unit *pVictim, uint32 addhealth, SpellEntry const *spellPro
 {
     int32 gain = pVictim->ModifyHealth(int32(addhealth));
 
-    if (GetTypeId()==TYPEID_PLAYER)
+    Unit* unit = this;
+
+    if( GetTypeId()==TYPEID_UNIT && ((Creature*)this)->isTotem() && ((Totem*)this)->GetTotemType()!=TOTEM_STATUE)
+        unit = GetOwner();
+
+    if (unit->GetTypeId()==TYPEID_PLAYER)
     {
         // overheal = addhealth - gain
-        SendHealSpellLog(pVictim, spellProto->Id, addhealth, addhealth - gain, critical);
+        unit->SendHealSpellLog(pVictim, spellProto->Id, addhealth, addhealth - gain, critical);
 
-        if (BattleGround *bg = ((Player*)this)->GetBattleGround())
-            bg->UpdatePlayerScore((Player*)this, SCORE_HEALING_DONE, gain);
+        if (BattleGround *bg = ((Player*)unit)->GetBattleGround())
+            bg->UpdatePlayerScore((Player*)unit, SCORE_HEALING_DONE, gain);
 
         // use the actual gain, as the overheal shall not be counted, skip gain 0 (it ignored anyway in to criteria)
         if (gain)
-            ((Player*)this)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HEALING_DONE, gain, 0, pVictim);
+            ((Player*)unit)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HEALING_DONE, gain, 0, pVictim);
 
-        ((Player*)this)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_HEAL_CASTED, addhealth);
+        ((Player*)unit)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_HEAL_CASTED, addhealth);
     }
 
     if (pVictim->GetTypeId()==TYPEID_PLAYER)
@@ -7935,7 +8030,8 @@ uint32 Unit::SpellDamageBonus(Unit *pVictim, SpellEntry const *spellProto, uint3
                 }
                 else // Tundra Stalker
                 {
-                    if (pVictim->GetAura(SPELL_AURA_DUMMY, SPELLFAMILY_DEATHKNIGHT, UI64LIT(0x0400000000000000)))
+                    // Frost Fever (target debuff)
+                    if (pVictim->GetAura(SPELL_AURA_MOD_HASTE, SPELLFAMILY_DEATHKNIGHT, UI64LIT(0x0000000000000000), 0x00000002))
                         DoneTotalMod *= ((*i)->GetModifier()->m_amount+100.0f)/100.0f;
                     break;
                 }
@@ -8967,8 +9063,7 @@ float Unit::GetPPMProcChance(uint32 WeaponSpeed, float PPM) const
 {
     // proc per minute chance calculation
     if (PPM <= 0) return 0.0f;
-    uint32 result = uint32((WeaponSpeed * PPM) / 600.0f);   // result is chance in percents (probability = Speed_in_sec * (PPM / 60))
-    return result;
+    return WeaponSpeed * PPM / 600.0f;                      // result is chance in percents (probability = Speed_in_sec * (PPM / 60))
 }
 
 void Unit::Mount(uint32 mount)
@@ -9303,13 +9398,11 @@ bool Unit::isVisibleForOrDetect(Unit const* u, bool detect, bool inVisibleList, 
 
     // NOW ONLY STEALTH CASE
 
-    // stealth and detected and visible for some seconds
-    if (u->GetTypeId() == TYPEID_PLAYER  && ((Player*)u)->m_DetectInvTimer > 300 && ((Player*)u)->HaveAtClient(this))
-        return true;
-
     //if in non-detect mode then invisible for unit
+    //mobs always detect players (detect == true)... return 'false' for those mobs which have (detect == false)
+    //players detect players only in Player::HandleStealthedUnitsDetection()
     if (!detect)
-        return false;
+        return (u->GetTypeId() == TYPEID_PLAYER) ? ((Player*)u)->HaveAtClient(this) : false;
 
     // Special cases
 
@@ -9325,21 +9418,13 @@ bool Unit::isVisibleForOrDetect(Unit const* u, bool detect, bool inVisibleList, 
     if (u->hasUnitState(UNIT_STAT_STUNNED) && (u != this))
         return false;
 
-    // Creature can detect target only in aggro radius
-    if(u->GetTypeId() != TYPEID_PLAYER)
-    {
-        //Always invisible from back and out of aggro range
-        bool isInFront = u->isInFrontInMap(this,((Creature const*)u)->GetAttackDistance(this));
-        if(!isInFront)
-            return false;
-    }
-    else
-    {
-        //Always invisible from back
-        bool isInFront = u->isInFrontInMap(this,(GetTypeId()==TYPEID_PLAYER || GetCharmerOrOwnerGUID()) ? World::GetMaxVisibleDistanceForPlayer() : World::GetMaxVisibleDistanceForCreature());
-        if(!isInFront)
-            return false;
-    }
+    // set max ditance
+    float visibleDistance = (u->GetTypeId() == TYPEID_PLAYER) ? MAX_PLAYER_STEALTH_DETECT_RANGE : ((Creature const*)u)->GetAttackDistance(this);
+
+    //Always invisible from back (when stealth detection is on), also filter max distance cases
+    bool isInFront = u->isInFrontInMap(this, visibleDistance);
+    if(!isInFront)
+        return false;
 
     // if doesn't have stealth detection (Shadow Sight), then check how stealthy the unit is, otherwise just check los
     if(!u->HasAuraType(SPELL_AURA_DETECT_STEALTH))
@@ -9347,7 +9432,7 @@ bool Unit::isVisibleForOrDetect(Unit const* u, bool detect, bool inVisibleList, 
         //Calculation if target is in front
 
         //Visible distance based on stealth value (stealth rank 4 300MOD, 10.5 - 3 = 7.5)
-        float visibleDistance = 10.5f - (GetTotalAuraModifier(SPELL_AURA_MOD_STEALTH)/100.0f);
+        visibleDistance = 10.5f - (GetTotalAuraModifier(SPELL_AURA_MOD_STEALTH)/100.0f);
 
         //Visible distance is modified by
         //-Level Diff (every level diff = 1.0f in visible distance)
@@ -9361,7 +9446,9 @@ bool Unit::isVisibleForOrDetect(Unit const* u, bool detect, bool inVisibleList, 
         //-Stealth Mod(positive like Master of Deception) and Stealth Detection(negative like paranoia)
         //based on wowwiki every 5 mod we have 1 more level diff in calculation
         visibleDistance += (int32(u->GetTotalAuraModifier(SPELL_AURA_MOD_DETECT)) - stealthMod)/5.0f;
+        visibleDistance = visibleDistance > MAX_PLAYER_STEALTH_DETECT_RANGE ? MAX_PLAYER_STEALTH_DETECT_RANGE : visibleDistance;
 
+        // recheck new distance
         if(visibleDistance <= 0 || !IsWithinDist(u,visibleDistance))
             return false;
     }
@@ -11799,7 +11886,10 @@ bool Unit::IsTriggeredAtSpellProcEvent(Unit *pVictim, Aura* aura, SpellEntry con
     }
     // Apply chance modifer aura
     if(Player* modOwner = GetSpellModOwner())
+    {
         modOwner->ApplySpellMod(spellProto->Id,SPELLMOD_CHANCE_OF_SUCCESS,chance);
+        modOwner->ApplySpellMod(spellProto->Id,SPELLMOD_FREQUENCY_OF_SUCCESS,chance);
+    }
 
     return roll_chance_f(chance);
 }
@@ -11876,6 +11966,12 @@ void Unit::RemoveAurasAtChanneledTarget(SpellEntry const* spellInfo)
 
 void Unit::SetPhaseMask(uint32 newPhaseMask, bool update)
 {
+    if(newPhaseMask==GetPhaseMask())
+        return;
+
+    if(IsInWorld())
+        RemoveNotOwnSingleTargetAuras(newPhaseMask);        // we can lost access to caster or target
+
     WorldObject::SetPhaseMask(newPhaseMask,update);
 
     if(IsInWorld())
