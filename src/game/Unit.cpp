@@ -6234,7 +6234,13 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
             {
                 triggered_spell_id = 54445;
                 target = this;
-                pVictim->AddThreat(this,procSpell->EffectBasePoints[0]*triggerAmount/100);
+                break;
+            }
+            // silverback
+            if (dummySpell->SpellIconID == 1582 && procSpell->SpellIconID == 201)
+            {
+                triggered_spell_id = dummySpell->Id == 62764 ? 62800 : 62801;
+                target = this;
                 break;
             }
             break;

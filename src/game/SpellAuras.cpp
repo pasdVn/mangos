@@ -2122,7 +2122,7 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 if( pet_aura )
                     pet_aura->SetStackAmount(3);
                 return;
-			}
+            }
             case 39850:                                     // Rocket Blast
                 if(roll_chance_i(20))                       // backfire stun
                     m_target->CastSpell(m_target, 51581, true, NULL, this);
@@ -2248,7 +2248,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 caster->RemoveAurasDueToSpell(60113);
             }
         }
-
         if (caster && m_removeMode == AURA_REMOVE_BY_DEATH)
         {
             // Stop caster Arcane Missle chanelling on death
