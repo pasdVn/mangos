@@ -8310,7 +8310,7 @@ uint32 Unit::SpellDamageBonus(Unit *pVictim, SpellEntry const *spellProto, uint3
         {
             if(!IsChanneledSpell(spellProto))
                 DotFactor = GetSpellDuration(spellProto) / 15000.0f;
-            int16 DotTicks = GetAuraTicks(spellProto);
+            uint16 DotTicks = GetSpellAuraMaxTicks(spellProto);
             if(DotTicks)
             {
                 DoneAdvertisedBenefit = DoneAdvertisedBenefit * int32(stack) / DotTicks;
@@ -8746,7 +8746,7 @@ uint32 Unit::SpellHealingBonus(Unit *pVictim, SpellEntry const *spellProto, uint
         {
             if(!IsChanneledSpell(spellProto))
                 DotFactor = GetSpellDuration(spellProto) / 15000.0f;
-            int16 DotTicks = GetAuraTicks(spellProto);
+            uint16 DotTicks = GetSpellAuraMaxTicks(spellProto);
             if(DotTicks)
             {
                 DoneAdvertisedBenefit = DoneAdvertisedBenefit * int32(stack) / DotTicks;
@@ -9200,7 +9200,7 @@ uint32 Unit::MeleeDamageBonus(Unit *pVictim, uint32 pdamage,WeaponAttackType att
             {
                 if(!IsChanneledSpell(spellProto))
                     DotFactor = GetSpellDuration(spellProto) / 15000.0f;
-                int16 DotTicks = GetAuraTicks(spellProto);
+                uint16 DotTicks = GetSpellAuraMaxTicks(spellProto);
                 if(DotTicks)
                 {
                     DoneFlat  = DoneFlat * int32(stack) / DotTicks;
