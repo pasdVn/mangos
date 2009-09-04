@@ -93,28 +93,28 @@ uint32 GetSpellCastTime(SpellEntry const* spellInfo, Spell const* spell)
 uint16 GetSpellAuraMaxTicks(SpellEntry const* spellInfo)
 {
     int32 DotDuration = GetSpellDuration(spellInfo);
-    if(DotDuration = 0)
+    if(DotDuration == 0)
         return 1;
 
     // 200% limit
     if(DotDuration > 30000)
         DotDuration = 30000;
 
-    int x = 0;
-    for(int j = 0; j < 3; j++)
+    int j = 0;
+    for( ; j < 3; j++)
     {
         if( spellInfo->Effect[j] == SPELL_EFFECT_APPLY_AURA && (
             spellInfo->EffectApplyAuraName[j] == SPELL_AURA_PERIODIC_DAMAGE ||
             spellInfo->EffectApplyAuraName[j] == SPELL_AURA_PERIODIC_HEAL ||
             spellInfo->EffectApplyAuraName[j] == SPELL_AURA_PERIODIC_LEECH) )
         {
-            x = j;
             break;
         }
     }
 
-    if(spellInfo->EffectAmplitude[x] != 0)
-        return DotDuration / spellInfo->EffectAmplitude[x];
+    if(spellInfo->EffectAmplitude[j] != 0)
+        return DotDuration / spellInfo->EffectAmplitude[j];
+
     return 6;
 }
 
