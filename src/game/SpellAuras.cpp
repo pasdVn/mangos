@@ -6276,7 +6276,7 @@ void Aura::PeriodicTick()
                 pdamage = amount;
 
                 // SpellDamageBonus for magic spells
-                if( GetSpellProto()->DmgClass <= SPELL_DAMAGE_CLASS_MAGIC )
+                if(GetSpellProto()->DmgClass == SPELL_DAMAGE_CLASS_NONE || GetSpellProto()->DmgClass == SPELL_DAMAGE_CLASS_MAGIC)
                     pdamage = pCaster->SpellDamageBonus(m_target, GetSpellProto(), pdamage, DOT, GetStackAmount());
                 // MeleeDamagebonus for weapon based spells
                 else
@@ -6287,8 +6287,8 @@ void Aura::PeriodicTick()
 
                 // Calculate armor mitigation if it is a physical spell
                 // But not for bleed mechanic spells
-                if ( GetSpellSchoolMask(GetSpellProto()) & SPELL_SCHOOL_MASK_NORMAL &&
-                     GetEffectMechanic(GetSpellProto(), m_effIndex) != MECHANIC_BLEED)
+                if (GetSpellSchoolMask(GetSpellProto()) & SPELL_SCHOOL_MASK_NORMAL &&
+                    GetEffectMechanic(GetSpellProto(), m_effIndex) != MECHANIC_BLEED)
                 {
                     uint32 pdamageReductedArmor = pCaster->CalcArmorReducedDamage(m_target, pdamage);
                     cleanDamage.damage += pdamage - pdamageReductedArmor;
