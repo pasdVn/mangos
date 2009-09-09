@@ -5676,7 +5676,7 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                 // This effect only from Rapid Killing (mana regen)
                 if (!(procSpell->SpellFamilyFlags & UI64LIT(0x0100000000000000)))
                     return false;
-                triggered_spell_id = 56654;
+                triggered_spell_id = dummySpell->Id == 53228 ? 56654 : 58882;
                 target = this;
                 break;
             }

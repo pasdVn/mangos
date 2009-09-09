@@ -2917,6 +2917,11 @@ void Spell::EffectEnergize(uint32 i)
         case 31930:                                         // Judgements of the Wise
         case 63375:                                         // Improved Stormstrike
             damage = damage * unitTarget->GetCreateMana() / 100;
+            break;
+        case 58883:                                         // Rapid Recuperation
+            if (!m_triggeredByAuraSpell)
+                return;
+            damage = (m_triggeredByAuraSpell->EffectBasePoints[0] + 1) * unitTarget->GetMaxPower(POWER_MANA) / 100;
         default:
             break;
     }
