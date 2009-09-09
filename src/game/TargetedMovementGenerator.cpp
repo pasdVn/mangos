@@ -204,7 +204,7 @@ TargetedMovementGenerator<T>::Update(T &owner, const uint32 & time_diff)
         //More distance let have better performance, less distance let have more sensitive reaction at target move.
 
         // try to counter precision differences
-        if (i_destinationHolder.GetDistance2dFromDestSq(*i_target.getTarget()) >= dist * dist || i_recalculateTravel)
+        if (i_destinationHolder.GetDistance3dFromDestSq(*i_target.getTarget()) >= dist * dist || i_recalculateTravel)
         {
             owner.SetInFront(i_target.getTarget());         // Set new Angle For Map::
             _setTargetLocation(owner);                      //Calculate New Dest and Send data To Player

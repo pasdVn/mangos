@@ -153,7 +153,7 @@ SpellSpecific GetSpellSpecific(uint32 spellId)
                             break;
                         // Drink
                         case SPELL_AURA_MOD_POWER_REGEN:
-                        case SPELL_AURA_OBS_MOD_MANA:
+                        case SPELL_AURA_OBS_MOD_ENERGY:
                             drink = true;
                             break;
                         default:
