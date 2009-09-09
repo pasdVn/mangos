@@ -5253,19 +5253,6 @@ void Spell::EffectScriptEffect(uint32 effIndex)
                         m_caster->CastCustomSpell(target, spellId, &basePoint, 0, 0, false);
                     return;
                 }
-                // Invigoration
-                case 53412:
-                {
-                    Unit::AuraList const& auras = unitTarget->GetAurasByType(SPELL_AURA_DUMMY);
-                    for(Unit::AuraList::const_iterator i = auras.begin();i != auras.end(); ++i)
-                        if( (*i)->GetModifier()->m_miscvalue == 8 && (*i)->GetSpellProto()->SpellIconID == 3487)
-                            if(roll_chance_i((*i)->GetModifier()->m_amount))
-                            {
-                                unitTarget->CastSpell(unitTarget, 53398, true, NULL, (*i), m_caster->GetGUID());
-                                return;
-                            }
-                    return;
-                }
                 default:
                     break;
             }
