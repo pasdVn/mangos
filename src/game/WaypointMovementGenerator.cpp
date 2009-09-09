@@ -160,10 +160,10 @@ bool WaypointMovementGenerator<Creature>::Update(Creature &creature, const uint3
                     else
                         creature.Say(behavior->textid[0], 0, 0);
                 }
-
-                i_hasDone[idx] = true;
-                MovementInform(creature);
             }                                               // wpBehaviour found
+
+            i_hasDone[idx] = true;
+            MovementInform(creature);
         }                                                   // HasDone == false
     }                                                       // i_creature.IsStopped()
 
@@ -310,7 +310,7 @@ void FlightPathMovementGenerator::SetCurrentNodeAfterTeleport()
         return;
 
     uint32 map0 = i_mapIds[0];
-    for(int i = 1; i < i_mapIds.size(); ++i)
+    for (size_t i = 1; i < i_mapIds.size(); ++i)
     {
         if(i_mapIds[i]!=map0)
         {

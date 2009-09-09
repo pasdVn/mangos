@@ -378,7 +378,7 @@ void CreatureEventAI::ProcessAction(CreatureEventAI_Action const& action, uint32
                             target = owner;
                     }
                 }
-                else if (target = m_creature->getVictim())
+                else if ((target = m_creature->getVictim()))
                 {
                     if (target->GetTypeId() != TYPEID_PLAYER)
                         if (Unit* owner = target->GetOwner())
@@ -1089,9 +1089,11 @@ void CreatureEventAI::UpdateAI(const uint32 diff)
                         break;
                     case EVENT_T_RANGE:
                         if (Combat)
-                            if (m_creature->IsInMap(m_creature->getVictim()))
-                                if (m_creature->IsInRange(m_creature->getVictim(),(float)(*i).Event.range.minDist,(float)(*i).Event.range.maxDist))
+                        {
+                            if (m_creature->getVictim() && m_creature->IsInMap(m_creature->getVictim()))
+                                if (m_creature->IsInRange(m_creature->getVictim(), (float)(*i).Event.range.minDist, (float)(*i).Event.range.maxDist))
                                     ProcessEvent(*i);
+                        }
                         break;
                 }
             }
@@ -1114,7 +1116,7 @@ void CreatureEventAI::UpdateAI(const uint32 diff)
 bool CreatureEventAI::IsVisible(Unit *pl) const
 {
     return m_creature->IsWithinDist(pl,sWorld.getConfig(CONFIG_SIGHT_MONSTER))
-        && pl->isVisibleForOrDetect(m_creature,true);
+        && pl->isVisibleForOrDetect(m_creature,m_creature,true);
 }
 
 inline Unit* CreatureEventAI::SelectUnit(AttackingTarget target, uint32 position)

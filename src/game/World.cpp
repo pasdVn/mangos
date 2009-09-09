@@ -112,8 +112,9 @@ World::~World()
 
     m_weathers.clear();
 
-    while (!cliCmdQueue.empty())
-        delete cliCmdQueue.next();
+    CliCommandHolder* command;
+    while (cliCmdQueue.next(command))
+        delete command;
 
     VMAP::VMapFactory::clear();
 
@@ -237,6 +238,11 @@ World::AddSession_ (WorldSession* s)
     s->SendPacket (&packet);
 
     s->SendAddonsInfo();
+
+    WorldPacket pkt(SMSG_CLIENTCACHE_VERSION, 4);
+    pkt << uint32(sWorld.getConfig(CONFIG_CLIENTCACHE_VERSION));
+    s->SendPacket(&pkt);
+
     s->SendTutorialsData();
 
     UpdateMaxSessionCounters ();
@@ -244,7 +250,7 @@ World::AddSession_ (WorldSession* s)
     // Updates the population
     if (pLimit > 0)
     {
-        float popu = GetActiveSessionCount ();              //updated number of users on the server
+        float popu = GetActiveSessionCount ();              // updated number of users on the server
         popu /= pLimit;
         popu *= 2;
         loginDatabase.PExecute ("UPDATE realmlist SET population = '%f' WHERE id = '%d'", popu, realmID);
@@ -673,12 +679,12 @@ void World::LoadConfigSettings(bool reload)
 
     if(reload)
     {
-        uint32 val = sConfig.GetIntDefault("MaxPlayerLevel", 80);
+        uint32 val = sConfig.GetIntDefault("MaxPlayerLevel", DEFAULT_MAX_LEVEL);
         if(val!=m_configs[CONFIG_MAX_PLAYER_LEVEL])
             sLog.outError("MaxPlayerLevel option can't be changed at mangosd.conf reload, using current value (%u).",m_configs[CONFIG_MAX_PLAYER_LEVEL]);
     }
     else
-        m_configs[CONFIG_MAX_PLAYER_LEVEL] = sConfig.GetIntDefault("MaxPlayerLevel", 80);
+        m_configs[CONFIG_MAX_PLAYER_LEVEL] = sConfig.GetIntDefault("MaxPlayerLevel", DEFAULT_MAX_LEVEL);
 
     if(m_configs[CONFIG_MAX_PLAYER_LEVEL] > MAX_LEVEL)
     {
@@ -867,7 +873,7 @@ void World::LoadConfigSettings(bool reload)
     m_configs[CONFIG_MAX_OVERSPEED_PINGS] = sConfig.GetIntDefault("MaxOverspeedPings",2);
     if(m_configs[CONFIG_MAX_OVERSPEED_PINGS] != 0 && m_configs[CONFIG_MAX_OVERSPEED_PINGS] < 2)
     {
-        sLog.outError("MaxOverspeedPings (%i) must be in range 2..infinity (or 0 to disable check. Set to 2.",m_configs[CONFIG_MAX_OVERSPEED_PINGS]);
+        sLog.outError("MaxOverspeedPings (%i) must be in range 2..infinity (or 0 to disable check). Set to 2.",m_configs[CONFIG_MAX_OVERSPEED_PINGS]);
         m_configs[CONFIG_MAX_OVERSPEED_PINGS] = 2;
     }
 
@@ -915,6 +921,8 @@ void World::LoadConfigSettings(bool reload)
 
     m_configs[CONFIG_TALENTS_INSPECTING]           = sConfig.GetBoolDefault("TalentsInspecting", true);
     m_configs[CONFIG_CHAT_FAKE_MESSAGE_PREVENTING] = sConfig.GetBoolDefault("ChatFakeMessagePreventing", false);
+    m_configs[CONFIG_CHAT_STRICT_LINK_CHECKING_SEVERITY] = sConfig.GetIntDefault("ChatStrictLinkChecking.Severity", 0);
+    m_configs[CONFIG_CHAT_STRICT_LINK_CHECKING_KICK] = sConfig.GetIntDefault("ChatStrictLinkChecking.Kick", 0);
 
     m_configs[CONFIG_CORPSE_DECAY_NORMAL]    = sConfig.GetIntDefault("Corpse.Decay.NORMAL", 60);
     m_configs[CONFIG_CORPSE_DECAY_RARE]      = sConfig.GetIntDefault("Corpse.Decay.RARE", 300);
@@ -954,7 +962,26 @@ void World::LoadConfigSettings(bool reload)
 
     m_configs[CONFIG_OFFHAND_CHECK_AT_TALENTS_RESET] = sConfig.GetBoolDefault("OffhandCheckAtTalentsReset", false);
 
+    if(int clientCacheId = sConfig.GetIntDefault("ClientCacheVersion", 0))
+    {
+        // overwrite DB/old value
+        if(clientCacheId > 0)
+        {
+            m_configs[CONFIG_CLIENTCACHE_VERSION] = clientCacheId;
+            sLog.outString("Client cache version set to: %u", clientCacheId);
+        }
+        else
+            sLog.outError("ClientCacheVersion can't be negative %d, ignored.", clientCacheId);
+    }
+
     m_configs[CONFIG_INSTANT_LOGOUT] = sConfig.GetIntDefault("InstantLogout", SEC_MODERATOR);
+
+    m_configs[CONFIG_GUILD_EVENT_LOG_COUNT] = sConfig.GetIntDefault("Guild.EventLogRecordsCount", GUILD_EVENTLOG_MAX_RECORDS);
+    if (m_configs[CONFIG_GUILD_EVENT_LOG_COUNT] < GUILD_EVENTLOG_MAX_RECORDS)
+        m_configs[CONFIG_GUILD_EVENT_LOG_COUNT] = GUILD_EVENTLOG_MAX_RECORDS;
+    m_configs[CONFIG_GUILD_BANK_EVENT_LOG_COUNT] = sConfig.GetIntDefault("Guild.BankEventLogRecordsCount", GUILD_BANK_MAX_LOGS);
+    if (m_configs[CONFIG_GUILD_BANK_EVENT_LOG_COUNT] < GUILD_BANK_MAX_LOGS)
+        m_configs[CONFIG_GUILD_BANK_EVENT_LOG_COUNT] = GUILD_BANK_MAX_LOGS;
 
     m_VisibleUnitGreyDistance = sConfig.GetFloatDefault("Visibility.Distance.Grey.Unit", 1);
     if(m_VisibleUnitGreyDistance >  MAX_VISIBILITY_DISTANCE)
@@ -1967,11 +1994,9 @@ void World::SendServerMessage(ServerMessageType type, const char *text, Player* 
 void World::UpdateSessions( uint32 diff )
 {
     ///- Add new sessions
-    while(!addSessQueue.empty())
-    {
-        WorldSession* sess = addSessQueue.next ();
+    WorldSession* sess;
+    while(addSessQueue.next(sess))
         AddSession_ (sess);
-    }
 
     ///- Then send an update signal to remaining ones
     for (SessionMap::iterator itr = m_sessions.begin(), next; itr != m_sessions.end(); itr = next)
@@ -1995,25 +2020,20 @@ void World::UpdateSessions( uint32 diff )
 // This handles the issued and queued CLI commands
 void World::ProcessCliCommands()
 {
-    if (cliCmdQueue.empty())
-        return;
+    CliCommandHolder::Print* zprint = NULL;
 
-    CliCommandHolder::Print* zprint;
-
-    while (!cliCmdQueue.empty())
+    CliCommandHolder* command;
+    while (cliCmdQueue.next(command))
     {
         sLog.outDebug("CLI command under processing...");
-        CliCommandHolder *command = cliCmdQueue.next();
-
         zprint = command->m_print;
-
         CliHandler(zprint).ParseCommands(command->m_command);
-
         delete command;
     }
 
     // print the console message here so it looks right
-    zprint("mangos>");
+    if (zprint)
+        zprint("mangos>");
 }
 
 void World::InitResultQueue()
@@ -2115,13 +2135,16 @@ void World::UpdateMaxSessionCounters()
 
 void World::LoadDBVersion()
 {
-    QueryResult* result = WorldDatabase.Query("SELECT version, creature_ai_version FROM db_version LIMIT 1");
+    QueryResult* result = WorldDatabase.Query("SELECT version, creature_ai_version, cache_id FROM db_version LIMIT 1");
     if(result)
     {
         Field* fields = result->Fetch();
 
         m_DBVersion              = fields[0].GetCppString();
         m_CreatureEventAIVersion = fields[1].GetCppString();
+
+        // will be overwrite by config values if different and non-0
+        m_configs[CONFIG_CLIENTCACHE_VERSION] = fields[2].GetUInt32();
         delete result;
     }
 
