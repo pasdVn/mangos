@@ -6927,32 +6927,6 @@ bool Unit::HandleProcTriggerSpell(Unit *pVictim, uint32 damage, Aura* triggeredB
                 return false;
             break;
         }
-        // Demonic Pact
-        case 48090:
-        {
-            Unit *owner = GetOwner();
-            if( !owner)
-                return false;
-
-            int32 factor = 0;
-            // get factor from owner dummy aura
-            AuraList const& mDummy = owner->GetAurasByType(SPELL_AURA_DUMMY);
-            for(Unit::AuraList::const_iterator i = mDummy.begin(); i != mDummy.end(); ++i)
-                if( (*i)->GetModifier()->m_miscvalue == 12 && (*i)->GetSpellProto()->SpellIconID == 3220 )
-                {
-                    factor = (*i)->GetModifier()->m_amount;
-                    break;
-                }
-            if( !factor)
-                return false;
-
-            // cancel alredy existing demonic pact to prevent stacking
-            owner->RemoveAurasDueToSpell(48090);
-            basepoints0 = owner->SpellBaseDamageBonus(SpellSchoolMask(SPELL_SCHOOL_MASK_MAGIC))* factor /100;
-
-            CastCustomSpell(target,trigger_spell_id,&basepoints0,&basepoints0,NULL,true,castItem,triggeredByAura);
-            return true;
-        }
         // Sword and Board
         case 50227:
         {
