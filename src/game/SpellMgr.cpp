@@ -373,29 +373,6 @@ bool IsPositiveTarget(uint32 targetA, uint32 targetB)
     return true;
 }
 
-bool IsUnitTargetUsingTarget(uint32 targetA, uint32 targetB)
-{
-    switch(targetA)
-    {
-        case TARGET_CHAIN_DAMAGE:
-        case TARGET_CHAIN_HEAL:
-        case TARGET_SINGLE_FRIEND:
-        case TARGET_SINGLE_FRIEND_2:
-        case TARGET_SINGLE_PARTY:
-        case TARGET_NONCOMBAT_PET:
-        case TARGET_DUELVSPLAYER:
-        case TARGET_AREAEFFECT_PARTY_AND_CLASS:
-        case TARGET_CURRENT_ENEMY_COORDINATES:
-        case TARGET_BEHIND_VICTIM:
-            return true;
-        default:
-            break;
-    }
-    if (targetB)
-            return IsUnitTargetUsingTarget(targetB,0);
-        return false;
-}
-
 bool IsPositiveEffect(uint32 spellId, uint32 effIndex)
 {
     SpellEntry const *spellproto = sSpellStore.LookupEntry(spellId);
@@ -470,7 +447,6 @@ bool IsPositiveEffect(uint32 spellId, uint32 effIndex)
                 case SPELL_AURA_ADD_TARGET_TRIGGER:
                     return true;
                 case SPELL_AURA_PERIODIC_TRIGGER_SPELL:
-                case SPELL_AURA_PERIODIC_TRIGGER_SPELL_WITH_VALUE:
                     if(spellId != spellproto->EffectTriggerSpell[effIndex])
                     {
                         uint32 spellTriggeredId = spellproto->EffectTriggerSpell[effIndex];
@@ -483,7 +459,7 @@ bool IsPositiveEffect(uint32 spellId, uint32 effIndex)
                             {
                                 // if non-positive trigger cast targeted to positive target this main cast is non-positive
                                 // this will place this spell auras as debuffs
-                                if(IsPositiveTarget(spellTriggeredProto->EffectImplicitTargetA[i],spellTriggeredProto->EffectImplicitTargetB[i]) && !IsPositiveEffect(spellTriggeredId,i))
+                                if(IsPositiveTarget(spellTriggeredProto->EffectImplicitTargetA[effIndex],spellTriggeredProto->EffectImplicitTargetB[effIndex]) && !IsPositiveEffect(spellTriggeredId,i))
                                     return false;
                             }
                         }
@@ -1746,8 +1722,7 @@ SpellEntry const* SpellMgr::SelectAuraRankForPlayerLevel(SpellEntry const* spell
     bool needRankSelection = false;
     for(int i=0;i<3;++i)
     {
-        if( IsPositiveEffect(spellInfo->Id, i) &&
-            IsUnitTargetUsingTarget(spellInfo->EffectImplicitTargetA[i], spellInfo->EffectImplicitTargetB[i]) && (
+        if( IsPositiveEffect(spellInfo->Id, i) && (
             spellInfo->Effect[i] == SPELL_EFFECT_APPLY_AURA ||
             spellInfo->Effect[i] == SPELL_EFFECT_APPLY_AREA_AURA_PARTY ||
             spellInfo->Effect[i] == SPELL_EFFECT_APPLY_AREA_AURA_RAID
