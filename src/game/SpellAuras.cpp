@@ -2442,7 +2442,7 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                 return;
             }
 
-			// Borrowed Time
+            // Borrowed Time
             if( m_spellProto->SpellIconID == 2899 && m_target->GetTypeId()==TYPEID_PLAYER )
             {
                 if(apply)
@@ -2451,7 +2451,7 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                     SpellModifier *mod = new SpellModifier;
                     mod->op = SPELLMOD_SPELL_BONUS_DAMAGE;
                     mod->value = m_modifier.m_amount;
-                    mod->type = SPELLMOD_PCT;
+                    mod->type = SPELLMOD_FLAT;
                     mod->spellId = GetId();
                     mod->mask = 0x1;
                     mod->mask2= 0x0;
@@ -6103,20 +6103,26 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
         SpellBonusEntry const* bonus = spellmgr.GetSpellBonusData(m_spellProto->Id);
         if (bonus)
         {
-            CustomSpellPowerScaling = bonus->direct_damage;
-            CustomAttackPowerScaling = bonus->ap_bonus;
+            // Check for custom scaling, default is 0%
+            float CustomSpellPowerScaling = 0.0f;
+            float CustomAttackPowerScaling = 0.0f;
+            SpellBonusEntry const* bonus = spellmgr.GetSpellBonusData(m_spellProto->Id);
+            if (bonus)
+            {
+	            CustomSpellPowerScaling = bonus->direct_damage * 100;
+	            CustomAttackPowerScaling = bonus->ap_bonus;
+            }
+
+            //check for SpellMod Scaling
+            if( Player* modOwner = caster->GetSpellModOwner() )
+	            modOwner->ApplySpellMod(m_spellProto->Id, SPELLMOD_SPELL_BONUS_DAMAGE, CustomSpellPowerScaling);
+            float LvlPenalty = caster->CalculateLevelPenalty(GetSpellProto());
+
+            int32 DoneActualBenefit = caster->SpellBaseDamageBonus(GetSpellSchoolMask(m_spellProto)) * CustomSpellPowerScaling / 100;
+            DoneActualBenefit += caster->GetTotalAttackPowerValue(BASE_ATTACK) * CustomAttackPowerScaling;
+            DoneActualBenefit *= LvlPenalty;
+            m_modifier.m_amount += DoneActualBenefit;
         }
-
-        //check for SpellMod Scaling
-        float SpellModSpellPowerScaling = 100.0f;
-        if( Player* modOwner = caster->GetSpellModOwner() )
-            modOwner->ApplySpellMod(m_spellProto->Id, SPELLMOD_SPELL_BONUS_DAMAGE, SpellModSpellPowerScaling);
-        SpellModSpellPowerScaling = (SpellModSpellPowerScaling - 100.0f)/100.0f;
-        float DoneActualBenefit = caster->SpellBaseDamageBonus(GetSpellSchoolMask(m_spellProto))*(CustomSpellPowerScaling + SpellModSpellPowerScaling);
-        DoneActualBenefit += caster->GetTotalAttackPowerValue(BASE_ATTACK) * CustomAttackPowerScaling;
-        DoneActualBenefit *= caster->CalculateLevelPenalty(GetSpellProto());
-
-        m_modifier.m_amount += (int32)DoneActualBenefit;
     }
     else
     {
