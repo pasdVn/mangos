@@ -5343,12 +5343,22 @@ void Spell::EffectScriptEffect(uint32 effIndex)
                         {
                             spellId = 53353; // 53353 Chimera Shot - Serpent
                             basePoint = aura->GetModifier()->m_amount * 5 * 40 / 100;
+                            if(Player* modOwner = m_caster->GetSpellModOwner())
+                                modOwner->ApplySpellMod(aura->GetId(), SPELLMOD_DOT, basePoint);
+
                         }
                         // Viper Sting - Instantly restores mana to you equal to 60% of the total amount drained by your Viper Sting.
                         if ((familyFlag & UI64LIT(0x0000008000000000)) && aura->GetEffIndex() == 0)
                         {
                             spellId = 53358; // 53358 Chimera Shot - Viper
-                            basePoint = aura->GetModifier()->m_amount * 4 * 60 / 100;
+                            // max value
+                            uint32 maxmana = m_caster->GetMaxPower(POWER_MANA)  * aura->GetModifier()->m_amount * 2 / 100;
+                            basePoint = unitTarget->GetMaxPower(POWER_MANA) * aura->GetModifier()->m_amount / 100;
+                            if(basePoint > maxmana)
+                                basePoint = maxmana;
+                            basePoint = basePoint * 4 * 60 / 100;
+                            if(Player* modOwner = m_caster->GetSpellModOwner())
+                                modOwner->ApplySpellMod(aura->GetId(), SPELLMOD_ALL_EFFECTS , basePoint);
                             target = m_caster;
                         }
                         // Scorpid Sting - Attempts to Disarm the target for 10 sec. This effect cannot occur more than once per 1 minute.
