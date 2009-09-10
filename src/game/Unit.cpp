@@ -8473,12 +8473,6 @@ bool Unit::isSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolM
                             if (pVictim->HasAura(6788))
                                 crit_chance+=(*i)->GetModifier()->m_amount;
                             break;
-                        case   21: // Test of Faith
-                        case 6935:
-                        case 6918:
-                            if (pVictim->GetHealth() < pVictim->GetMaxHealth()/2)
-                                crit_chance+=(*i)->GetModifier()->m_amount;
-                            break;
                         default:
                             break;
                     }
