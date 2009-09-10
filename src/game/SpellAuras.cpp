@@ -6117,26 +6117,22 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
         SpellBonusEntry const* bonus = spellmgr.GetSpellBonusData(m_spellProto->Id);
         if (bonus)
         {
-            // Check for custom scaling, default is 0%
-            float CustomSpellPowerScaling = 0.0f;
-            float CustomAttackPowerScaling = 0.0f;
-            SpellBonusEntry const* bonus = spellmgr.GetSpellBonusData(m_spellProto->Id);
-            if (bonus)
-            {
-	            CustomSpellPowerScaling = bonus->direct_damage * 100;
-	            CustomAttackPowerScaling = bonus->ap_bonus;
-            }
-
-            //check for SpellMod Scaling
-            if( Player* modOwner = caster->GetSpellModOwner() )
-	            modOwner->ApplySpellMod(m_spellProto->Id, SPELLMOD_SPELL_BONUS_DAMAGE, CustomSpellPowerScaling);
-            float LvlPenalty = caster->CalculateLevelPenalty(GetSpellProto());
-
-            int32 DoneActualBenefit = caster->SpellBaseDamageBonus(GetSpellSchoolMask(m_spellProto)) * CustomSpellPowerScaling / 100;
-            DoneActualBenefit += caster->GetTotalAttackPowerValue(BASE_ATTACK) * CustomAttackPowerScaling;
-            DoneActualBenefit *= LvlPenalty;
-            m_modifier.m_amount += DoneActualBenefit;
+            CustomSpellPowerScaling = bonus->direct_damage * 100;
+            CustomAttackPowerScaling = bonus->ap_bonus;
         }
+
+        //check for SpellMod Scaling
+        if( Player* modOwner = caster->GetSpellModOwner() )
+            modOwner->ApplySpellMod(m_spellProto->Id, SPELLMOD_SPELL_BONUS_DAMAGE, CustomSpellPowerScaling);
+        float LvlPenalty = caster->CalculateLevelPenalty(GetSpellProto());
+
+        int32 DoneActualBenefit = 0;
+        if (CustomSpellPowerScaling)
+            DoneActualBenefit += caster->SpellBaseDamageBonus(GetSpellSchoolMask(m_spellProto)) * CustomSpellPowerScaling / 100;
+        if (CustomAttackPowerScaling)
+            DoneActualBenefit += caster->GetTotalAttackPowerValue(BASE_ATTACK) * CustomAttackPowerScaling;
+        DoneActualBenefit *= LvlPenalty;
+        m_modifier.m_amount += DoneActualBenefit;
     }
     else
     {
