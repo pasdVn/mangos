@@ -5356,7 +5356,16 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, Aura* triggeredByAu
                 RemoveSpellsCausingAura(SPELL_AURA_MOD_DECREASE_SPEED);
                 break;
             }
-
+            // Body and Soul
+            else if (dummySpell->SpellIconID == 2218)
+            {
+                // Proc only from Abolish desease on self cast
+                if (procSpell->Id != 552 || pVictim != this || !roll_chance_i(triggerAmount))
+                    return false;
+                triggered_spell_id = 64136;
+                target = this;
+                break;
+            }
             switch(dummySpell->Id)
             {
                 // Vampiric Embrace
@@ -7116,6 +7125,15 @@ bool Unit::HandleProcTriggerSpell(Unit *pVictim, uint32 damage, Aura* triggeredB
         {
             // Proc only from trap activation of frost- and freezing trap (from periodic proc another aura of this spell)
             if (!(procFlags & PROC_FLAG_ON_TRAP_ACTIVATION) || !(procSpell->SpellFamilyFlags & 0x00000018) || !roll_chance_i(triggerAmount))
+                return false;
+            break;
+        }
+        // Body and Soul
+        case 64128:
+        case 65081:
+        {
+            // Proc only from PW:S cast
+            if (!(procSpell->SpellFamilyFlags & 0x00000001))
                 return false;
             break;
         }
