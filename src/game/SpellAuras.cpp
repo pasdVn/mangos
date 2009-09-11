@@ -4485,6 +4485,22 @@ void Aura::HandleAuraPeriodicDummy(bool apply, bool Real)
 void Aura::HandlePeriodicHeal(bool apply, bool /*Real*/)
 {
     m_isPeriodic = apply;
+
+    // empowered renew
+    if (apply && m_spellProto->SpellFamilyName == SPELLFAMILY_PRIEST && m_spellProto->SpellFamilyFlags & 0x00000040)
+    {
+        Unit* m_caster = GetCaster();
+        if (!m_caster)
+            return;
+        Aura* dummy = GetCaster()->GetDummyAuraByMiscValue(7997);
+        if (!dummy)
+            return;
+
+        // amount hard to access with current calculation system, hack for now
+        uint32 ticks = m_maxduration / m_modifier.periodictime;
+        int32 heal =  m_modifier.m_amount * ticks * dummy->GetModifier()->m_amount /100;
+        m_caster->CastCustomSpell(m_target, 63544, &heal, NULL, NULL, true, NULL, this);
+    }
 }
 
 void Aura::HandlePeriodicDamage(bool apply, bool Real)

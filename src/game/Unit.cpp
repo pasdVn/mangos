@@ -12018,6 +12018,18 @@ Aura* Unit::GetDummyAura( uint32 spell_id ) const
     return NULL;
 }
 
+Aura* Unit::GetDummyAuraByMiscValue( int32 miscvalue ) const
+{
+    Unit::AuraList const& mDummy = GetAurasByType(SPELL_AURA_DUMMY);
+    for(Unit::AuraList::const_iterator itr = mDummy.begin(); itr != mDummy.end(); ++itr)
+    {
+        uint32 effIndex = (*itr)->GetEffIndex();
+        if ((*itr)->GetSpellProto()->EffectMiscValue[effIndex] == miscvalue)
+            return *itr;
+    }
+    return NULL;
+}
+
 void Unit::SetContestedPvP(Player *attackedPlayer)
 {
     Player* player = GetCharmerOrOwnerPlayerOrPlayerItself();

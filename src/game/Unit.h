@@ -1379,6 +1379,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         int32 GetMaxNegativeAuraModifierByMiscValue(AuraType auratype, int32 misc_value) const;
 
         Aura* GetDummyAura(uint32 spell_id) const;
+        Aura* GetDummyAuraByMiscValue( int32 miscvalue ) const;
 
         Aura* GetLinkedDummyAura(uint32 spell_id) const;
         void AddDummyAuraLink(Aura* m_Aura) { m_dummyAuraLink.push_back(m_Aura); }
