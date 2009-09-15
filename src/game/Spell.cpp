@@ -2665,24 +2665,41 @@ void Spell::_handle_finish_phase()
 
 void Spell::SendSpellCooldown()
 {
-    if(m_caster->GetTypeId() != TYPEID_PLAYER)
-        return;
-
-    Player* _player = (Player*)m_caster;
-
-    // mana/health/etc potions, disabled by client (until combat out as declarate)
-    if (m_CastItem && m_CastItem->IsPotion())
+    switch (m_caster->GetTypeId())
     {
-        // need in some way provided data for Spell::finish SendCooldownEvent
-        _player->SetLastPotionId(m_CastItem->GetEntry());
-        return;
+        case TYPEID_UNIT:
+        {
+            // need to store cooldowns also for creature, in case charmed!?
+            if (!((Creature*)m_caster)->isPet())
+                return;
+
+            // have infinity cooldown but set at aura apply
+            if(m_spellInfo->Attributes & SPELL_ATTR_DISABLED_WHILE_ACTIVE)
+                return;
+
+            ((Creature*)m_caster)->AddCreatureSpellCooldown(m_spellInfo);
+        }break;
+        case TYPEID_PLAYER:
+        {
+            Player* _player = (Player*)m_caster;
+
+            // mana/health/etc potions, disabled by client (until combat out as declarate)
+            if (m_CastItem && m_CastItem->IsPotion())
+            {
+                // need in some way provided data for Spell::finish SendCooldownEvent
+                _player->SetLastPotionId(m_CastItem->GetEntry());
+                return;
+            }
+
+            // have infinity cooldown but set at aura apply
+            if(m_spellInfo->Attributes & SPELL_ATTR_DISABLED_WHILE_ACTIVE)
+                return;
+
+            _player->AddSpellAndCategoryCooldowns(m_spellInfo,m_CastItem ? m_CastItem->GetEntry() : 0, this);
+        }break;
+        default:
+            return;;
     }
-
-    // have infinity cooldown but set at aura apply
-    if(m_spellInfo->Attributes & SPELL_ATTR_DISABLED_WHILE_ACTIVE)
-        return;
-
-    _player->AddSpellAndCategoryCooldowns(m_spellInfo,m_CastItem ? m_CastItem->GetEntry() : 0, this);
 }
 
 void Spell::update(uint32 difftime)
