@@ -2029,12 +2029,9 @@ void Creature::_AddCreatureCategoryCooldown(uint32 category, time_t end_time)
     m_CreatureCategoryCooldowns[category] = end_time;
 }
 
-void Creature::AddCreatureSpellCooldown(SpellEntry const* spellInfo)
+void Creature::AddSpellAndCategoryCooldowns(SpellEntry const* spellInfo, uint32 itemId, Spell* spell, bool infinityCooldown)
 {
     uint32 cooldown = GetSpellRecoveryTime(spellInfo);
-    // simplified gcd handling - should be enough for now
-    if (spellInfo->StartRecoveryTime)
-        m_GlobalCooldown = spellInfo->StartRecoveryTime;
 
     // apply spellmod (in case creature is pet)
     if (Player* modOwner = GetSpellModOwner())

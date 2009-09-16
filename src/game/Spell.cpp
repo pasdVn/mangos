@@ -2290,6 +2290,9 @@ void Spell::prepare(SpellCastTargets const* targets, Aura* triggeredByAura)
     // set timer base at cast time
     ReSetTimer();
 
+    // send global cooldown
+    SendGlobalCooldown();
+
     // stealth must be removed at cast starting (at show channel bar)
     // skip triggered spell (item equip spell casting and other not explicit character casts/item uses)
     if ( !m_IsTriggeredSpell && isSpellBreakStealth(m_spellInfo) )
@@ -2669,15 +2672,9 @@ void Spell::SendSpellCooldown()
     {
         case TYPEID_UNIT:
         {
-            // need to store cooldowns also for creature, in case charmed!?
-            if (!((Creature*)m_caster)->isPet())
+            // store cooldown only for charmed creatures and pets
+            if (!((Creature*)m_caster)->GetCharmInfo())
                 return;
-
-            // have infinity cooldown but set at aura apply
-            if(m_spellInfo->Attributes & SPELL_ATTR_DISABLED_WHILE_ACTIVE)
-                return;
-
-            ((Creature*)m_caster)->AddCreatureSpellCooldown(m_spellInfo);
         }break;
         case TYPEID_PLAYER:
         {
@@ -2690,16 +2687,30 @@ void Spell::SendSpellCooldown()
                 _player->SetLastPotionId(m_CastItem->GetEntry());
                 return;
             }
-
-            // have infinity cooldown but set at aura apply
-            if(m_spellInfo->Attributes & SPELL_ATTR_DISABLED_WHILE_ACTIVE)
-                return;
-
-            _player->AddSpellAndCategoryCooldowns(m_spellInfo,m_CastItem ? m_CastItem->GetEntry() : 0, this);
         }break;
         default:
             return;;
     }
+
+    // have infinity cooldown but set at aura apply
+    if(m_spellInfo->Attributes & SPELL_ATTR_DISABLED_WHILE_ACTIVE)
+        return;
+    m_caster->AddSpellAndCategoryCooldowns(m_spellInfo, m_CastItem ? m_CastItem->GetEntry() : 0, this);
+}
+
+void Spell::SendGlobalCooldown()
+{
+    if (!m_spellInfo->StartRecoveryTime)
+        return;
+
+    // server side handling only for charmed creatures and pets
+    if (m_caster->GetTypeId() != TYPEID_UNIT)
+        return;
+
+    if (!((Creature*)m_caster)->GetCharmInfo())
+        return;
+
+    ((Creature*)m_caster)->SetGlobalCooldown(m_spellInfo->StartRecoveryTime);
 }
 
 void Spell::update(uint32 difftime)
