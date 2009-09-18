@@ -1112,11 +1112,20 @@ bool Aura::_RemoveAura()
     }
 
     // reset cooldown state for spells
-    if(caster && caster->GetTypeId() == TYPEID_PLAYER)
+    if (GetSpellProto()->Attributes & SPELL_ATTR_DISABLED_WHILE_ACTIVE && caster)
     {
-        if ( GetSpellProto()->Attributes & SPELL_ATTR_DISABLED_WHILE_ACTIVE )
+        // always send for players
+        if (caster->GetTypeId() == TYPEID_PLAYER)
+        {
             // note: item based cooldowns and cooldown spell mods with charges ignored (unknown existed cases)
             ((Player*)caster)->SendCooldownEvent(GetSpellProto());
+        }
+        // send to controller, if unit is player-controlled
+        if (caster->isControlledByPlayer())
+        {
+            Player* controller = (Player*)(caster->GetCharmerOrOwner());
+            controller->SendCooldownEvent(GetSpellProto(), 0, NULL, caster);
+        }
     }
 
     return true;

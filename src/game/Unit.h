@@ -1160,6 +1160,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
             return GetGUID();
         }
         bool isCharmedOwnedByPlayerOrPlayer() const { return IS_PLAYER_GUID(GetCharmerOrOwnerOrOwnGUID()); }
+        bool isControlledByPlayer() const;
 
         Player* GetSpellModOwner();
 

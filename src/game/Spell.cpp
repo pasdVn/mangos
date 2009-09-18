@@ -2319,6 +2319,7 @@ void Spell::cancel()
     switch (m_spellState)
     {
         case SPELL_STATE_PREPARING:
+            ResetGlobalCooldown();
         case SPELL_STATE_DELAYED:
         {
             SendInterrupted(0);
@@ -2672,8 +2673,8 @@ void Spell::SendSpellCooldown()
     {
         case TYPEID_UNIT:
         {
-            // store cooldown only for charmed creatures and pets
-            if (!((Creature*)m_caster)->GetCharmInfo())
+            // store cooldown only for controlled creatures
+            if (!m_caster->isControlledByPlayer())
                 return;
         }break;
         case TYPEID_PLAYER:
@@ -2707,10 +2708,28 @@ void Spell::SendGlobalCooldown()
     if (m_caster->GetTypeId() != TYPEID_UNIT)
         return;
 
-    if (!((Creature*)m_caster)->GetCharmInfo())
+    if (!m_caster->isControlledByPlayer())
         return;
 
     ((Creature*)m_caster)->SetGlobalCooldown(m_spellInfo->StartRecoveryTime);
+}
+
+void Spell::ResetGlobalCooldown()
+{
+    // spells without gcd can't reset it
+    if (!m_spellInfo->StartRecoveryTime)
+        return;
+
+    // server side handling only for charmed creatures and pets
+    if (m_caster->GetTypeId() != TYPEID_UNIT)
+        return;
+
+     if (!m_caster->isControlledByPlayer())
+        return;
+
+     ((Creature*)m_caster)->SetGlobalCooldown(0);
+     // need to send packet for controlled creatures, this will clear gcd
+     ((Player*)m_caster->GetCharmerOrOwner())->SendClearCooldown(m_spellInfo->Id, m_caster);
 }
 
 void Spell::update(uint32 difftime)

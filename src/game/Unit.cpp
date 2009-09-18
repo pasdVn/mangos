@@ -7581,6 +7581,26 @@ bool Unit::IsNeutralToAll() const
     return my_faction->IsNeutralToAll();
 }
 
+bool Unit::isControlledByPlayer() const
+{
+    // this method will return true, if this unit is directly controlled by a player,
+    // that means player has a pet cast bar
+    Unit* owner = GetCharmerOrOwner();
+
+    if (!owner || owner->GetTypeId() != TYPEID_PLAYER)
+        return false;
+
+    // player-charmed units always have pet action bar (hope this is correct)
+    if (isCharmed())
+        return true;
+
+    if (GetTypeId() == TYPEID_UNIT && ((Creature*)this)->isPet() &&
+        ((Pet*)this)->isControlled())
+        return true;
+
+    return false;
+}
+
 bool Unit::Attack(Unit *victim, bool meleeAttack)
 {
     if(!victim || victim == this)
