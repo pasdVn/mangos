@@ -8518,23 +8518,6 @@ bool Unit::isSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolM
                 // Custom crit by class
                 switch(spellProto->SpellFamilyName)
                 {
-                    case SPELLFAMILY_PRIEST:
-                        // Improved Flash Heal
-                        if (spellProto->SpellFamilyFlags & UI64LIT(0x0000000000000800))
-                        {
-                            if(pVictim->GetHealth() > pVictim->GetMaxHealth()/2)
-                                break;
-                            AuraList const& mDummyAuras = GetAurasByType(SPELL_AURA_DUMMY);
-                            for(AuraList::const_iterator i = mDummyAuras.begin(); i!= mDummyAuras.end(); ++i)
-                            {
-                                if((*i)->GetModifier()->m_miscvalue == 7997)
-                                {
-                                    crit_chance+=(*i)->GetModifier()->m_amount;
-                                    break;
-                                }
-                            }
-                            break;
-                        }
                     case SPELLFAMILY_PALADIN:
                         // Sacred Shield
                         if (spellProto->SpellFamilyFlags & UI64LIT(0x0000000040000000))
