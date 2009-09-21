@@ -943,7 +943,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
     // Do healing and triggers
     if (m_healing)
     {
-        bool crit = caster->isSpellCrit(NULL, m_spellInfo, m_spellSchoolMask);
+        bool crit = caster->isSpellCrit(unitTarget, m_spellInfo, m_spellSchoolMask);
         uint32 addhealth = m_healing;
         if (crit)
         {
@@ -981,13 +981,6 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
             caster->ProcDamageAndSpell(unitTarget, procAttacker, procVictim, procEx, damageInfo.damage, m_attackType, m_spellInfo);
 
         caster->DealSpellDamage(&damageInfo, true);
-
-        // Judgement of Blood
-        if (m_spellInfo->SpellFamilyName == SPELLFAMILY_PALADIN && (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0000000800000000)) && m_spellInfo->SpellIconID==153)
-        {
-            int32 damagePoint  = damageInfo.damage * 33 / 100;
-            m_caster->CastCustomSpell(m_caster, 32220, &damagePoint, NULL, NULL, true);
-        }
     }
     // Passive spell hits/misses or active spells only misses (only triggers)
     else
@@ -3591,7 +3584,7 @@ SpellCastResult Spell::CheckRuneCost(uint32 runeCostID)
 
     for(uint32 i = 0; i < MAX_RUNES; ++i)
     {
-        uint8 rune = plr->GetCurrentRune(i);
+        RuneType rune = plr->GetCurrentRune(i);
         if((plr->GetRuneCooldown(i) == 0) && (runeCost[rune] > 0))
             runeCost[rune]--;
     }
@@ -3634,7 +3627,7 @@ void Spell::TakeRunePower()
 
     for(uint32 i = 0; i < MAX_RUNES; ++i)
     {
-        uint8 rune = plr->GetCurrentRune(i);
+        RuneType rune = plr->GetCurrentRune(i);
         if((plr->GetRuneCooldown(i) == 0) && (runeCost[rune] > 0))
         {
             plr->SetRuneCooldown(i, RUNE_COOLDOWN);         // 5*2=10 sec
@@ -3648,7 +3641,7 @@ void Spell::TakeRunePower()
     {
         for(uint32 i = 0; i < MAX_RUNES; ++i)
         {
-            uint8 rune = plr->GetCurrentRune(i);
+            RuneType rune = plr->GetCurrentRune(i);
             if((plr->GetRuneCooldown(i) == 0) && (rune == RUNE_DEATH))
             {
                 plr->SetRuneCooldown(i, RUNE_COOLDOWN);     // 5*2=10 sec

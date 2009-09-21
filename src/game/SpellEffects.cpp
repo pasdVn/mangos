@@ -613,9 +613,17 @@ void Spell::EffectSchoolDMG(uint32 effect_idx)
             }
             case SPELLFAMILY_PALADIN:
             {
-                // Judgement of Vengeance ${1+0.22*$SPH+0.14*$AP} + 10% for each application of Holy Vengeance on the target
+                // Judgement of Vengeance/Corruption ${1+0.22*$SPH+0.14*$AP} + 10% for each application of Holy Vengeance/Blood Corruption on the target
                 if ((m_spellInfo->SpellFamilyFlags & UI64LIT(0x800000000)) && m_spellInfo->SpellIconID==2292)
                 {
+                    uint32 debuf_id;
+                    switch(m_spellInfo->Id)
+                    {
+                        case 53733: debuf_id = 53742; break;// Judgement of Corruption -> Blood Corruption
+                        case 31804: debuf_id = 31803; break;// Judgement of Vengeance -> Holy Vengeance
+                        default: return;
+                    }
+
                     float ap = m_caster->GetTotalAttackPowerValue(BASE_ATTACK);
                     int32 holy = m_caster->SpellBaseDamageBonus(GetSpellSchoolMask(m_spellInfo)) +
                                  m_caster->SpellBaseDamageBonusForVictim(GetSpellSchoolMask(m_spellInfo), unitTarget);
@@ -624,11 +632,13 @@ void Spell::EffectSchoolDMG(uint32 effect_idx)
                     uint32 stacks = 0;
                     Unit::AuraList const& auras = unitTarget->GetAurasByType(SPELL_AURA_PERIODIC_DAMAGE);
                     for(Unit::AuraList::const_iterator itr = auras.begin(); itr!=auras.end(); ++itr)
-                        if((*itr)->GetId() == 31803 && (*itr)->GetCasterGUID()==m_caster->GetGUID())
+                    {
+                        if( ((*itr)->GetId() == debuf_id) && (*itr)->GetCasterGUID()==m_caster->GetGUID())
                         {
                             stacks = (*itr)->GetStackAmount();
                             break;
                         }
+                    }
                     // + 10% for each application of Holy Vengeance on the target
                     if(stacks)
                         damage += damage * stacks * 10 /100;
@@ -661,6 +671,12 @@ void Spell::EffectSchoolDMG(uint32 effect_idx)
                 else if (m_spellInfo->SpellFamilyFlags & UI64LIT(0x0010000000000000))
                 {
                     damage+=int32(m_caster->GetShieldBlockValue());
+                }
+                // Judgement
+                else if (m_spellInfo->Id == 54158)
+                {
+                    // [1 + 0.25 * SPH + 0.16 * AP]
+                    damage += int32(m_caster->GetTotalAttackPowerValue(BASE_ATTACK) * 0.16f);
                 }
                 break;
             }
@@ -1633,6 +1649,16 @@ void Spell::EffectDummy(uint32 i)
                     ((Player*)m_caster)->SendAttackSwingCancelAttack();
                     return;
                 }
+                // Master's Call
+                case 53271:
+                {
+                    Pet* pet = m_caster->GetPet();
+                    if (!pet || !unitTarget)
+                        return;
+
+                    pet->CastSpell(unitTarget, m_spellInfo->CalculateSimpleValue(i), true);
+                    return;
+                }
             }
             break;
         case SPELLFAMILY_PALADIN:
@@ -1677,25 +1703,7 @@ void Spell::EffectDummy(uint32 i)
                     if (!spell_proto)
                         return;
 
-                    if (!unitTarget->hasUnitState(UNIT_STAT_STUNNED) && m_caster->GetTypeId()==TYPEID_PLAYER)
-                    {
-                        // decreased damage (/2) for non-stunned target.
-                        SpellModifier *mod = new SpellModifier;
-                        mod->op = SPELLMOD_DAMAGE;
-                        mod->value = -50;
-                        mod->type = SPELLMOD_PCT;
-                        mod->spellId = m_spellInfo->Id;
-                        mod->mask = UI64LIT(0x0000020000000000);
-                        mod->mask2= UI64LIT(0x0);
-
-                        ((Player*)m_caster)->AddSpellMod(mod, true);
-                        m_caster->CastSpell(unitTarget, spell_proto, true, NULL);
-                                                            // mod deleted
-                        ((Player*)m_caster)->AddSpellMod(mod, false);
-                    }
-                    else
-                        m_caster->CastSpell(unitTarget, spell_proto, true, NULL);
-
+                    m_caster->CastSpell(unitTarget, spell_proto, true, NULL);
                     return;
                 }
             }
@@ -3317,6 +3325,8 @@ void Spell::EffectSummonType(uint32 i)
                 EffectSummonGuardian(i);
             break;
         case SUMMON_TYPE_WILD:
+        case SUMMON_TYPE_QUEST_WILD:
+        case SUMMON_TYPE_CREATURE:
             EffectSummonWild(i);
             break;
         case SUMMON_TYPE_DEMON:
@@ -3330,6 +3340,7 @@ void Spell::EffectSummonType(uint32 i)
         case SUMMON_TYPE_CRITTER:
         case SUMMON_TYPE_CRITTER2:
         case SUMMON_TYPE_CRITTER3:
+        case SUMMON_TYPE_QUEST_CRITTER:
             EffectSummonCritter(i);
             break;
         case SUMMON_TYPE_TOTEM_SLOT1:
@@ -3523,6 +3534,11 @@ void Spell::EffectDispel(uint32 i)
         std::list < std::pair<uint32,uint64> > success_list;// (spell_id,casterGuid)
         std::list < uint32 > fail_list;                     // spell_id
         int32 list_size = dispel_list.size();
+
+        // some spells have effect value = 0 and all from its by meaning expect 1
+        if(!damage)
+            damage = 1;
+
         // Dispell N = damage buffs (or while exist buffs for dispel)
         for (int32 count=0; count < damage && list_size > 0; ++count)
         {
@@ -4656,12 +4672,32 @@ void Spell::EffectWeaponDmg(uint32 i)
         if(m_caster->GetTypeId()==TYPEID_PLAYER)
             ((Player*)m_caster)->AddComboPoints(unitTarget, 1);
     }
-
     // Mangle (Cat): CP
-    if (m_spellInfo->SpellFamilyName==SPELLFAMILY_DRUID && (m_spellInfo->SpellFamilyFlags==UI64LIT(0x0000040000000000)))
+    else if (m_spellInfo->SpellFamilyName==SPELLFAMILY_DRUID && (m_spellInfo->SpellFamilyFlags==UI64LIT(0x0000040000000000)))
     {
         if(m_caster->GetTypeId()==TYPEID_PLAYER)
             ((Player*)m_caster)->AddComboPoints(unitTarget, 1);
+    }
+    else if(m_spellInfo->SpellFamilyName==SPELLFAMILY_PALADIN)
+    {
+        // Judgement of Blood/of the Martyr backlash damage (33%)
+        if(m_spellInfo->SpellFamilyFlags & 0x0000000800000000LL && m_spellInfo->SpellIconID==153)
+        {
+            int32 damagePoint  = m_damage * 33 / 100;
+            if(m_spellInfo->Id == 31898)
+                m_caster->CastCustomSpell(m_caster, 32220, &damagePoint, NULL, NULL, true);
+            else
+                m_caster->CastCustomSpell(m_caster, 53725, &damagePoint, NULL, NULL, true);
+        }
+        // Seal of Blood/of the Martyr backlash damage (10%)
+        else if(m_spellInfo->SpellIconID==2293)
+        {
+            int32 damagePoint  = m_damage * 10 / 100;
+            if(m_spellInfo->Id == 31893)
+                m_caster->CastCustomSpell(m_caster, 32221, &damagePoint, NULL, NULL, true);
+            else
+                m_caster->CastCustomSpell(m_caster, 53718, &damagePoint, NULL, NULL, true);
+        }
     }
 
     // take ammo
@@ -5395,6 +5431,16 @@ void Spell::EffectScriptEffect(uint32 effIndex)
                     }
                     return;
                 }
+                // Master's Call
+                case 53271:
+                {
+                    if (!unitTarget)
+                        return;
+
+                    // script effect have in value, but this outdated removed part
+                    unitTarget->CastSpell(unitTarget, 62305, true);
+                    return;
+                }
                 default:
                     break;
             }
@@ -5421,19 +5467,30 @@ void Spell::EffectScriptEffect(uint32 effIndex)
                         sLog.outError("Unsupported Judgement (seal trigger) spell (Id: %u) in Spell::EffectScriptEffect",m_spellInfo->Id);
                         return;
                 }
-                // all seals have aura dummy in 2 effect
+                // offensive seals have aura dummy in 2 effect
                 Unit::AuraList const& m_dummyAuras = m_caster->GetAurasByType(SPELL_AURA_DUMMY);
                 for(Unit::AuraList::const_iterator itr = m_dummyAuras.begin(); itr != m_dummyAuras.end(); ++itr)
                 {
-                    SpellEntry const *spellInfo = (*itr)->GetSpellProto();
-                    // search seal (all seals have judgement's aura dummy spell id in 2 effect
-                    if ((*itr)->GetEffIndex() != 2 || !spellInfo || !IsSealSpell(spellInfo))
+                    // search seal (offensive seals have judgement's aura dummy spell id in 2 effect
+                    if ((*itr)->GetEffIndex() != 2 || !IsSealSpell((*itr)->GetSpellProto()))
                         continue;
                     spellId2 = (*itr)->GetModifier()->m_amount;
                     SpellEntry const *judge = sSpellStore.LookupEntry(spellId2);
                     if (!judge)
                         continue;
                     break;
+                }
+                // if there were no offensive seals than there is seal with proc trigger aura
+                if (!spellId2)
+                {
+                    Unit::AuraList const& procTriggerAuras = m_caster->GetAurasByType(SPELL_AURA_PROC_TRIGGER_SPELL);
+                    for(Unit::AuraList::const_iterator itr = procTriggerAuras.begin(); itr != procTriggerAuras.end(); ++itr)
+                    {
+                        if ((*itr)->GetEffIndex() != 0 || !IsSealSpell((*itr)->GetSpellProto()))
+                            continue;
+                        spellId2 = 54158;
+                        break;
+                    }
                 }
                 if (spellId1)
                     m_caster->CastSpell(unitTarget, spellId1, true);
@@ -6858,7 +6915,7 @@ void Spell::EffectActivateRune(uint32  eff_idx)
 
     for(uint32 j = 0; j < MAX_RUNES; ++j)
     {
-        if(plr->GetRuneCooldown(j) && plr->GetCurrentRune(j) == m_spellInfo->EffectMiscValue[eff_idx])
+        if(plr->GetRuneCooldown(j) && plr->GetCurrentRune(j) == RuneType(m_spellInfo->EffectMiscValue[eff_idx]))
         {
             plr->SetRuneCooldown(j, 0);
         }

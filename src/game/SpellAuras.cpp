@@ -448,6 +448,13 @@ m_isRemovedOnShapeLost(true), m_in_use(0), m_deleted(false)
                               m_spellProto->Stances &&
                             !(m_spellProto->AttributesEx2 & SPELL_ATTR_EX2_NOT_NEED_SHAPESHIFT) &&
                             !(m_spellProto->Attributes & SPELL_ATTR_NOT_SHAPESHIFT));
+
+    if (caster && m_spellProto->Id == 22959)                // Improved Scorch
+    {
+        // Glyph of Improved Scorch
+        if (Aura* glyph = caster->GetDummyAura(56371))
+            m_stackAmount = glyph->GetModifier()->m_amount;
+    }
 }
 
 Aura::~Aura()
@@ -476,6 +483,9 @@ Unit *caster, Item* castItem) : Aura(spellproto, eff, currentBasePoints, target,
         case SPELL_EFFECT_APPLY_AREA_AURA_RAID:
             m_areaAuraType = AREA_AURA_RAID;
             if (target->GetTypeId() == TYPEID_UNIT && ((Creature*)target)->isTotem())
+                m_modifier.m_auraname = SPELL_AURA_NONE;
+            // Light's Beacon not applied to caster itself (TODO: more generic check for another simialr spell if any?)
+            else if (target == caster_ptr && m_spellProto->Id == 53651)
                 m_modifier.m_auraname = SPELL_AURA_NONE;
             break;
         case SPELL_EFFECT_APPLY_AREA_AURA_FRIEND:
@@ -745,7 +755,40 @@ void AreaAura::Update(uint32 diff)
 
             for(std::list<Unit *>::iterator tIter = targets.begin(); tIter != targets.end(); tIter++)
             {
-                if((*tIter)->HasAura(GetId(), m_effIndex))
+                // flag for seelction is need apply aura to current iteration target
+                bool apply = true;
+
+                // we need ignore present caster self applied are auras sometime
+                // in cases if this only auras applied for spell effect
+                Unit::spellEffectPair spair = Unit::spellEffectPair(GetId(), m_effIndex);
+                for(Unit::AuraMap::const_iterator i = (*tIter)->GetAuras().lower_bound(spair); i != (*tIter)->GetAuras().upper_bound(spair); ++i)
+                {
+                    if (i->second->IsDeleted())
+                        continue;
+
+                    switch(m_areaAuraType)
+                    {
+                        case AREA_AURA_ENEMY:
+                            // non caster self-casted auras (non stacked)
+                            if(i->second->GetModifier()->m_auraname != SPELL_AURA_NONE)
+                                apply = false;
+                            break;
+                        case AREA_AURA_RAID:
+                            // non caster self-casted auras (stacked from diff. casters)
+                            if(i->second->GetModifier()->m_auraname != SPELL_AURA_NONE  || i->second->GetCasterGUID() == GetCasterGUID())
+                                apply = false;
+                            break;
+                        default:
+                            // in generic case not allow stacking area auras
+                            apply = false;
+                            break;
+                    }
+
+                    if(!apply)
+                        break;
+                }
+
+                if(!apply)
                     continue;
 
                 if(SpellEntry const *actualSpellInfo = spellmgr.SelectAuraRankForPlayerLevel(GetSpellProto(), (*tIter)->getLevel()))
@@ -778,7 +821,7 @@ void AreaAura::Update(uint32 diff)
             caster->IsFriendlyTo(m_target) != needFriendly
            )
         {
-            m_target->RemoveAura(GetId(), GetEffIndex());
+            m_target->RemoveAurasByCasterSpell(GetId(), GetEffIndex(),GetCasterGUID());
         }
         else if( m_areaAuraType == AREA_AURA_PARTY)         // check if in same sub group
         {
@@ -810,16 +853,16 @@ void AreaAura::Update(uint32 diff)
                 {
                     Player* checkTarget = m_target->GetCharmerOrOwnerPlayerOrPlayerItself();
                     if(!checkTarget)
-                        m_target->RemoveAura(GetId(), GetEffIndex());
+                        m_target->RemoveAurasByCasterSpell(GetId(), GetEffIndex(), GetCasterGUID());
                 }
                 else
-                    m_target->RemoveAura(GetId(), GetEffIndex());
+                    m_target->RemoveAurasByCasterSpell(GetId(), GetEffIndex(), GetCasterGUID());
             }
         }
         else if( m_areaAuraType == AREA_AURA_PET || m_areaAuraType == AREA_AURA_OWNER )
         {
             if( m_target->GetGUID() != caster->GetCharmerOrOwnerGUID() )
-                m_target->RemoveAura(GetId(), GetEffIndex());
+                m_target->RemoveAurasByCasterSpell(GetId(), GetEffIndex(), GetCasterGUID());
         }
     }
 }
@@ -858,6 +901,32 @@ void Aura::ApplyModifier(bool apply, bool Real)
     if(aura < TOTAL_AURAS)
         (*this.*AuraHandler [aura])(apply, Real);
     SetInUse(false);
+}
+
+bool Aura::IsNeedVisibleSlot(Unit const* caster) const
+{
+    bool totemAura = caster && caster->GetTypeId() == TYPEID_UNIT && ((Creature*)caster)->isTotem();
+
+    // passive auras (except totem auras) do not get placed in the slots
+    if (m_isPassive && !totemAura)
+        return false;
+
+    // generic not caster case
+    if (m_target != caster)
+        return true;
+
+    // special area auras case at caster
+    switch(m_spellProto->Effect[GetEffIndex()])
+    {
+        case SPELL_EFFECT_APPLY_AREA_AURA_ENEMY:
+            return false;
+        case SPELL_EFFECT_APPLY_AREA_AURA_RAID:
+            // not sure is totemAura  need, just preserve old code results
+            return totemAura || m_modifier.m_auraname != SPELL_AURA_NONE;
+        default: break;
+    }
+
+    return true;
 }
 
 void Aura::_AddAura()
@@ -917,10 +986,7 @@ void Aura::_AddAura()
         }
     }
 
-    // passive auras (except totem auras) do not get placed in the slots
-    // area auras with SPELL_AURA_NONE are not shown on target
-    if((!m_isPassive || (caster && caster->GetTypeId() == TYPEID_UNIT && ((Creature*)caster)->isTotem())) &&
-        (m_spellProto->Effect[GetEffIndex()] != SPELL_EFFECT_APPLY_AREA_AURA_ENEMY || m_target != caster))
+    if (IsNeedVisibleSlot(caster))
     {
         SetAuraSlot( slot );
         if(slot < MAX_AURAS)                        // slot found send data to client
@@ -2467,6 +2533,20 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                     m_spellmod = mod;
                 }
                 ((Player*)m_target)->AddSpellMod(m_spellmod, apply);
+                return;
+            }
+            break;
+        }
+        case SPELLFAMILY_PALADIN:
+        {
+            // Beacon of Light
+            if (GetId() == 53563)
+            {
+                if(apply)
+                    // original caster must be target (beacon)
+                    m_target->CastSpell(m_target,53651,true,NULL,this,m_target->GetGUID());
+                else
+                    m_target->RemoveAurasByCasterSpell(53651,m_target->GetGUID());
                 return;
             }
             break;
@@ -6145,7 +6225,6 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
             CustomSpellPowerScaling = bonus->direct_damage * 100;
             CustomAttackPowerScaling = bonus->ap_bonus;
         }
-
         //check for SpellMod Scaling
         if( Player* modOwner = caster->GetSpellModOwner() )
             modOwner->ApplySpellMod(m_spellProto->Id, SPELLMOD_SPELL_BONUS_DAMAGE, CustomSpellPowerScaling);
@@ -6158,6 +6237,26 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
             DoneActualBenefit += caster->GetTotalAttackPowerValue(BASE_ATTACK) * CustomAttackPowerScaling;
         DoneActualBenefit *= LvlPenalty;
         m_modifier.m_amount += DoneActualBenefit;
+
+        // now that the correct amount is computed, apply caster aura, if any
+        switch(m_spellProto->SpellFamilyName)
+        {
+            case SPELLFAMILY_PRIEST:
+                // Power Word: Shield
+                if (m_spellProto->SpellFamilyFlags & UI64LIT(0x0000000000000001))
+                {
+                    // Glyph of Power Word: Shield
+                    if(Aura* glyph = caster->GetAura(55672,0))
+                    {
+                        // instant heal glyph m_amount% of the absorbed amount
+                        int32 heal = (glyph->GetModifier()->m_amount * m_modifier.m_amount)/100;
+                        caster->CastCustomSpell(m_target, 56160, &heal, NULL, NULL, true, 0, this);
+                    }
+                }
+                break;
+            default:
+                break;
+        }
     }
     else
     {
@@ -7178,7 +7277,7 @@ void Aura::HandleManaShield(bool apply, bool Real)
             switch(m_spellProto->SpellFamilyName)
             {
                 case SPELLFAMILY_MAGE:
-                    if(m_spellProto->SpellFamilyFlags & UI64LIT(0x8000))
+                    if(m_spellProto->SpellFamilyFlags & UI64LIT(0x0000000000008000))
                     {
                         // Mana Shield
                         // +50% from +spd bonus
@@ -7259,13 +7358,13 @@ void Aura::HandleAuraConvertRune(bool apply, bool Real)
         {
             if(!plr->GetRuneCooldown(i))
             {
-                plr->ConvertRune(i, GetSpellProto()->EffectMiscValueB[m_effIndex]);
+                plr->ConvertRune(i, RuneType(GetSpellProto()->EffectMiscValueB[m_effIndex]));
                 break;
             }
         }
         else
         {
-            if(plr->GetCurrentRune(i) == GetSpellProto()->EffectMiscValueB[m_effIndex])
+            if(plr->GetCurrentRune(i) == RuneType(GetSpellProto()->EffectMiscValueB[m_effIndex]))
             {
                 plr->ConvertRune(i, plr->GetBaseRune(i));
                 break;
