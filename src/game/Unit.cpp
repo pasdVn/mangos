@@ -1086,8 +1086,7 @@ void Unit::CalculateSpellDamage(SpellNonMeleeDamage *damageInfo, int32 damage, S
                     damage = int32((damage) * float((100.0f + critPctDamageMod)/100.0f));
 
                 // Resilience - reduce crit damage
-                if (pVictim->GetTypeId()==TYPEID_PLAYER)
-                    damage -= ((Player*)pVictim)->GetMeleeCritDamageReduction(damage);
+                damage -= pVictim->GetResilenceMeleeCritDamageReduction(attackType, damage);
             }
             // Spell weapon based damage CAN BE crit & blocked at same time
             if (blocked)
@@ -1111,8 +1110,7 @@ void Unit::CalculateSpellDamage(SpellNonMeleeDamage *damageInfo, int32 damage, S
                 damageInfo->HitInfo|= SPELL_HIT_TYPE_CRIT;
                 damage = SpellCriticalDamageBonus(spellInfo, damage, pVictim);
                 // Resilience - reduce crit damage
-                if (pVictim->GetTypeId()==TYPEID_PLAYER)
-                    damage -= ((Player*)pVictim)->GetSpellCritDamageReduction(damage);
+                damage -= pVictim->GetResilenceSpellCritDamageReduction(damage);
             }
         }
         break;
@@ -1302,12 +1300,9 @@ void Unit::CalculateMeleeDamage(Unit *pVictim, uint32 damage, CalcDamageInfo *da
                 damageInfo->damage = int32((damageInfo->damage) * float((100.0f + mod)/100.0f));
 
             // Resilience - reduce crit damage
-            if (pVictim->GetTypeId()==TYPEID_PLAYER)
-            {
-                uint32 resilienceReduction = ((Player*)pVictim)->GetMeleeCritDamageReduction(damageInfo->damage);
-                damageInfo->damage      -= resilienceReduction;
-                damageInfo->cleanDamage += resilienceReduction;
-            }
+            uint32 resilienceReduction = GetResilenceMeleeCritDamageReduction(attackType, damageInfo->damage);
+            damageInfo->damage      -= resilienceReduction;
+            damageInfo->cleanDamage += resilienceReduction;
             break;
         }
         case MELEE_HIT_PARRY:
@@ -1578,8 +1573,9 @@ uint32 Unit::CalcArmorReducedDamage(Unit* pVictim, const uint32 damage)
     armor += GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_TARGET_RESISTANCE, SPELL_SCHOOL_MASK_NORMAL);
 
     // Apply Player CR_ARMOR_PENETRATION rating and percent talents
-    if (GetTypeId()==TYPEID_PLAYER)
-        armor *= 1.0f - ((Player*)this)->GetArmorPenetrationPct() / 100.0f;
+    // Pets gain 100% of the owner's penetration
+    if (Player* modOwner = GetSpellModOwner())
+        armor *= 1.0f - modOwner->GetArmorPenetrationPct() / 100.0f;
 
     if (armor < 0.0f)
         armor = 0.0f;
@@ -2906,14 +2902,8 @@ float Unit::GetUnitCriticalChance(WeaponAttackType attackType, const Unit *pVict
 
     crit += pVictim->GetTotalAuraModifier(SPELL_AURA_MOD_ATTACKER_SPELL_AND_WEAPON_CRIT_CHANCE);
 
-    // reduce crit chance from Rating for players
-    if (pVictim->GetTypeId()==TYPEID_PLAYER)
-    {
-        if (attackType==RANGED_ATTACK)
-            crit -= ((Player*)pVictim)->GetRatingBonusValue(CR_CRIT_TAKEN_RANGED);
-        else
-            crit -= ((Player*)pVictim)->GetRatingBonusValue(CR_CRIT_TAKEN_MELEE);
-    }
+    // reduce crit chance from resilence (players and pets)
+    crit -= pVictim->GetResilenceMeleeCritChanceReduction(attackType);
 
     // Apply crit chance from defence skill
     crit += (int32(GetMaxSkillValueForLevel(pVictim)) - int32(pVictim->GetDefenseSkillValue(this))) * 0.04f;
@@ -8529,9 +8519,8 @@ bool Unit::isSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolM
                     crit_chance += pVictim->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_ATTACKER_SPELL_CRIT_CHANCE, schoolMask);
                     // Modify critical chance by victim SPELL_AURA_MOD_ATTACKER_SPELL_AND_WEAPON_CRIT_CHANCE
                     crit_chance += pVictim->GetTotalAuraModifier(SPELL_AURA_MOD_ATTACKER_SPELL_AND_WEAPON_CRIT_CHANCE);
-                    // Modify by player victim resilience
-                    if (pVictim->GetTypeId() == TYPEID_PLAYER)
-                        crit_chance -= ((Player*)pVictim)->GetRatingBonusValue(CR_CRIT_TAKEN_SPELL);
+                    // reduce crit chance from resilence (players and pets)
+                    crit_chance -= pVictim->GetResilenceSpellCritChanceReduction();
                 }
 
                 // scripted (increase crit chance ... against ... target by x%)

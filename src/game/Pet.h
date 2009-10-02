@@ -172,6 +172,11 @@ class Pet : public Creature
         int32 GetBonusDamage() { return m_bonusdamage; }
         void SetBonusDamage(int32 damage) { m_bonusdamage = damage; }
         float GetHappinessDamageMod();
+        uint32 GetResilenceMeleeCritDamageReduction(WeaponAttackType attackType, uint32 damage) const;
+        uint32 GetResilenceSpellCritDamageReduction(uint32 damage) const;
+        float GetResilenceMeleeCritChanceReduction(WeaponAttackType attackType) const;
+        float GetResilenceSpellCritChanceReduction() const;
+        uint32 GetResilenceDotDamageReduction(uint32 damage) const;
 
         bool UpdateStats(Stats stat);
         bool UpdateAllStats();

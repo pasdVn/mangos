@@ -1046,7 +1046,12 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         float GetUnitBlockChance()    const;
         float GetUnitCriticalChance(WeaponAttackType attackType, const Unit *pVictim) const;
 
-        virtual uint32 GetShieldBlockValue() const =0;
+        virtual uint32 GetResilenceMeleeCritDamageReduction(WeaponAttackType attackType, uint32 damage) const {return 0;};
+        virtual uint32 GetResilenceSpellCritDamageReduction(uint32 damage) const {return 0;};
+        virtual float GetResilenceMeleeCritChanceReduction(WeaponAttackType attackType) const {return 0;};
+        virtual float GetResilenceSpellCritChanceReduction() const {return 0;};
+        virtual uint32 GetResilenceDotDamageReduction(uint32 damage) const {return 0;};
+        virtual uint32 GetShieldBlockValue() const = 0;
         uint32 GetUnitMeleeSkill(Unit const* target = NULL) const { return (target ? getLevelForTarget(target) : getLevel()) * 5; }
         uint32 GetDefenseSkillValue(Unit const* target = NULL) const;
         uint32 GetWeaponSkillValue(WeaponAttackType attType, Unit const* target = NULL) const;

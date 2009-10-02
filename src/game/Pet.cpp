@@ -647,6 +647,72 @@ float Pet::GetHappinessDamageMod()
     }
 }
 
+float Pet::GetResilenceMeleeCritChanceReduction(WeaponAttackType attackType) const
+{
+    // pets receive 40% of their master's resilence (all pets!?)
+    Player* owner = ((Unit*)this)->GetSpellModOwner();
+    if (!owner)
+        return 0;
+
+    if (attackType == RANGED_ATTACK)
+        return owner->GetRatingBonusValue(CR_CRIT_TAKEN_RANGED) * 0.4f;
+    else
+        return owner->GetRatingBonusValue(CR_CRIT_TAKEN_MELEE) * 0.4f;
+}
+
+float Pet::GetResilenceSpellCritChanceReduction() const
+{
+    // pets receive 40% of their master's resilence (all pets!?)
+    Player* owner = ((Unit*)this)->GetSpellModOwner();
+    if (!owner)
+        return 0;
+
+    return owner->GetRatingBonusValue(CR_CRIT_TAKEN_SPELL);
+}
+
+uint32 Pet::GetResilenceMeleeCritDamageReduction(WeaponAttackType attackType, uint32 damage) const
+{
+    // pets receive 40% of their master's resilence (all pets!?)
+    Player* owner = ((Unit*)this)->GetSpellModOwner();
+    if (!owner)
+        return 0;
+
+    float melee;
+    if (attackType ==RANGED_ATTACK)
+        melee = owner->GetRatingBonusValue(CR_CRIT_TAKEN_RANGED) * 2.2f * 0.4f;
+    else
+        melee = owner->GetRatingBonusValue(CR_CRIT_TAKEN_MELEE) * 2.2f * 0.4f;
+    if (melee > 33.0f) melee = 33.0f;
+    return uint32 (melee * damage / 100.0f);
+}
+
+uint32 Pet::GetResilenceSpellCritDamageReduction(uint32 damage) const
+{
+    // pets receive 40% of their master's resilence (all pets!?)
+    Player* owner = ((Unit*)this)->GetSpellModOwner();
+    if (!owner)
+        return 0;
+
+    float spell = owner->GetRatingBonusValue(CR_CRIT_TAKEN_SPELL) * 2.2f *0.4f;
+    if (spell > 33.0f)
+        spell = 33.0f;
+    return uint32 (spell * damage / 100.0f);
+}
+
+uint32 Pet::GetResilenceDotDamageReduction(uint32 damage) const
+{
+    // pets receive 40% of their master's resilence (all pets!?)
+    Player* owner = ((Unit*)this)->GetSpellModOwner();
+    if (!owner)
+        return 0;
+
+    float spellDot = owner->GetRatingBonusValue(CR_CRIT_TAKEN_SPELL) * 0.4f;
+    // Dot resilience not limited (limit it by 100%)
+    if (spellDot > 100.0f)
+        spellDot = 100.0f;
+    return uint32 (spellDot * damage / 100.0f);
+}
+
 bool Pet::CanTakeMoreActiveSpells(uint32 spellid)
 {
     uint8  activecount = 1;
