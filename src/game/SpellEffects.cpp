@@ -3453,7 +3453,7 @@ void Spell::EffectSummon(uint32 i)
     spawnCreature->SetCreatorGUID(m_caster->GetGUID());
     spawnCreature->SetUInt32Value(UNIT_CREATED_BY_SPELL, m_spellInfo->Id);
 
-    spawnCreature->InitStatsForLevel(level, m_caster);
+    spawnCreature->InitStatsForLevel(level);
 
     spawnCreature->GetCharmInfo()->SetPetNumber(pet_number, false);
 
@@ -3868,10 +3868,12 @@ void Spell::EffectSummonGuardian(uint32 i)
         spawnCreature->SetUInt32Value(UNIT_FIELD_FLAGS, 0);
         spawnCreature->SetUInt32Value(UNIT_FIELD_BYTES_1, 0);
         spawnCreature->SetUInt32Value(UNIT_FIELD_PET_NAME_TIMESTAMP, 0);
+        spawnCreature->SetUInt32Value(UNIT_FIELD_PETEXPERIENCE, 0);
+        spawnCreature->SetUInt32Value(UNIT_FIELD_PETNEXTLEVELEXP, 1000);
         spawnCreature->SetCreatorGUID(m_caster->GetGUID());
         spawnCreature->SetUInt32Value(UNIT_CREATED_BY_SPELL, m_spellInfo->Id);
 
-        spawnCreature->InitStatsForLevel(level, m_caster);
+        spawnCreature->InitStatsForLevel(level);
         spawnCreature->GetCharmInfo()->SetPetNumber(pet_number, false);
 
         spawnCreature->AIM_Initialize();
@@ -4360,7 +4362,7 @@ void Spell::EffectSummonPet(uint32 i)
     if(m_caster->IsPvP())
         NewSummon->SetPvP(true);
 
-    NewSummon->InitStatsForLevel(petlevel, m_caster);
+    NewSummon->InitStatsForLevel(petlevel);
     NewSummon->InitPetCreateSpells();
     NewSummon->InitLevelupSpellsForLevel();
     NewSummon->InitTalentForLevel();

@@ -8478,6 +8478,19 @@ int32 Unit::SpellBaseDamageBonusForVictim(SpellSchoolMask schoolMask, Unit *pVic
     return TakenAdvertisedBenefit;
 }
 
+int32 Unit::GetMaxSpellBaseDamageBonus(SpellSchoolMask schoolMask)
+{
+    int32 bonus = 0;
+    for (int i = SPELL_SCHOOL_HOLY; i < MAX_SPELL_SCHOOL; i++)
+        if (schoolMask & SpellSchoolMask(1 << i))
+        {
+            int32 current = SpellBaseDamageBonus(SpellSchoolMask(1 << i));
+            if (current > bonus)
+                bonus = current;
+        }
+    return bonus > 0 ? bonus : 0;
+}
+
 bool Unit::isSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolMask schoolMask, WeaponAttackType attackType)
 {
     // not critting spell
@@ -10253,6 +10266,10 @@ int32 Unit::CalculateSpellDamage(SpellEntry const* spellProto, uint8 effect_inde
             spellProto->Effect[effect_index] != SPELL_EFFECT_KNOCK_BACK &&
             (spellProto->Effect[effect_index] != SPELL_EFFECT_APPLY_AURA || spellProto->EffectApplyAuraName[effect_index] != SPELL_AURA_MOD_DECREASE_SPEED))
         value = int32(value*0.25f*exp(getLevel()*(70-spellProto->spellLevel)/1000.0f));
+
+    if (spellProto->AttributesEx4 & SPELL_ATTR_EX4_DMG_CALC_FROM_OWNER_STAT &&
+        GetTypeId() == TYPEID_UNIT && ((Creature*)this)->isPet())
+        value += ((Pet*)this)->CalcScalingAuraBonus(spellProto, effect_index);
 
     return value;
 }

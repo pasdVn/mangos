@@ -303,6 +303,7 @@ Player::Player (WorldSession *session): Unit(), m_achievementMgr(this), m_reputa
 
     m_regenTimer = 0;
     m_weaponChangeTimer = 0;
+    m_petScalingUpdateTimer = 0;
 
     m_zoneUpdateId = 0;
     m_zoneUpdateTimer = 0;
@@ -1321,9 +1322,21 @@ void Player::Update( uint32 p_time )
     SendUpdateToOutOfRangeGroupMembers();
 
     Pet* pet = GetPet();
-    if(pet && !IsWithinDistInMap(pet, OWNER_MAX_DISTANCE) && (GetCharmGUID() && (pet->GetGUID() != GetCharmGUID())))
+    if(pet)
     {
-        RemovePet(pet, PET_SAVE_NOT_IN_SLOT, true);
+        if (!IsWithinDistInMap(pet, OWNER_MAX_DISTANCE) && (GetCharmGUID() && (pet->GetGUID() != GetCharmGUID())))
+            RemovePet(pet, PET_SAVE_NOT_IN_SLOT, true);
+        else if (m_petScalingUpdateTimer)
+        {
+            if (m_petScalingUpdateTimer <= p_time)
+            {
+                pet->UpdateScalingAuras();
+                m_petScalingUpdateTimer = 0;
+            }
+            else
+                m_petScalingUpdateTimer -= p_time;
+        }
+
     }
 
     //we should execute delayed teleports only for alive(!) players
@@ -16633,6 +16646,17 @@ void Player::RemovePetActionBar()
     WorldPacket data(SMSG_PET_SPELLS, 8);
     data << uint64(0);
     SendDirectMessage(&data);
+}
+
+void Player::UpdatePetScalingAuras()
+{
+    Pet* pet = GetPet();
+    if (!pet)
+        return;
+
+    // pet scaling auras will be updated with delay, to minimize cpu cycles
+    if (!m_petScalingUpdateTimer)
+        m_petScalingUpdateTimer = 1000;
 }
 
 bool Player::IsAffectedBySpellmod(SpellEntry const *spellInfo, SpellModifier *mod, Spell const* spell)
