@@ -4758,17 +4758,32 @@ void Aura::HandleAuraModStat(bool apply, bool /*Real*/)
         return;
     }
 
+    float healthPct = 0, manaPct = 0;
+
     for(int32 i = STAT_STRENGTH; i < MAX_STATS; i++)
     {
         // -1 or -2 is all stats ( misc < -2 checked in function beginning )
         if (m_modifier.m_miscvalue < 0 || m_modifier.m_miscvalue == i)
         {
+            if (GetSpellProto()->AttributesEx4 && SPELL_ATTR_EX4_DMG_CALC_FROM_OWNER_STAT)
+            {
+                if ( i == STAT_STAMINA)
+                    healthPct = float(m_target->GetHealth()) / m_target->GetMaxHealth();
+                else if ( i == STAT_INTELLECT)
+                    manaPct = float(m_target->GetPower(POWER_MANA)) / m_target->GetMaxPower(POWER_MANA);
+            }
+
             //m_target->ApplyStatMod(Stats(i), m_modifier.m_amount,apply);
             m_target->HandleStatModifier(UnitMods(UNIT_MOD_STAT_START + i), TOTAL_VALUE, float(m_modifier.m_amount), apply);
             if(m_target->GetTypeId() == TYPEID_PLAYER || ((Creature*)m_target)->isPet())
                 m_target->ApplyStatBuffMod(Stats(i), m_modifier.m_amount, apply);
         }
     }
+
+    if (healthPct > 0)
+        m_target->SetHealth(uint32(healthPct * m_target->GetMaxHealth()));
+    if (manaPct > 0)
+        m_target->SetPower(POWER_MANA, uint32(manaPct * m_target->GetMaxPower(POWER_MANA)));
 }
 
 void Aura::HandleModPercentStat(bool apply, bool /*Real*/)
