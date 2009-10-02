@@ -8099,9 +8099,15 @@ uint32 Unit::SpellDamageBonus(Unit *pVictim, SpellEntry const *spellProto, uint3
     int32 TakenTotal = 0;
 
     // ..done
-    // Pet damage
-    if( GetTypeId() == TYPEID_UNIT && !((Creature*)this)->isPet() )
-        DoneTotalMod *= ((Creature*)this)->GetSpellDamageMod(((Creature*)this)->GetCreatureInfo()->rank);
+
+    // creature and pet bonus mods
+    if (GetTypeId() == TYPEID_UNIT)
+    {
+        if (!((Creature*)this)->isPet())
+            DoneTotalMod *= ((Creature*)this)->GetSpellDamageMod(((Creature*)this)->GetCreatureInfo()->rank);
+        else
+            DoneTotalMod *= ((Pet*)this)->GetHappinessDamageMod();
+    }
 
     AuraList const& mModDamagePercentDone = GetAurasByType(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE);
     for(AuraList::const_iterator i = mModDamagePercentDone.begin(); i != mModDamagePercentDone.end(); ++i)
