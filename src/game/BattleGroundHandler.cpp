@@ -23,7 +23,6 @@
 #include "Player.h"
 #include "ObjectMgr.h"
 #include "WorldSession.h"
-#include "ObjectAccessor.h"
 #include "Object.h"
 #include "Chat.h"
 #include "BattleGroundMgr.h"
@@ -31,6 +30,7 @@
 #include "BattleGround.h"
 #include "ArenaTeam.h"
 #include "Language.h"
+#include "ScriptCalls.h"
 
 void WorldSession::HandleBattlemasterHelloOpcode( WorldPacket & recv_data )
 {
@@ -277,7 +277,10 @@ void WorldSession::HandleBattlefieldListOpcode( WorldPacket &recv_data )
     recv_data >> bgTypeId;                                  // id from DBC
 
     uint8 fromWhere;
-    recv_data >> fromWhere;                                 // 0 - battlemaster, 1 - UI
+    recv_data >> fromWhere;                                 // 0 - battlemaster (lua: ShowBattlefieldList), 1 - UI (lua: RequestBattlegroundInstanceInfo)
+
+    uint8 unk1;
+    recv_data >> unk1;                                      // unknown 3.2.2
 
     BattlemasterListEntry const* bl = sBattlemasterListStore.LookupEntry(bgTypeId);
     if (!bl)
@@ -583,7 +586,7 @@ void WorldSession::HandleAreaSpiritHealerQueryOpcode( WorldPacket & recv_data )
     if(!unit->isSpiritService())                            // it's not spirit service
         return;
 
-    sBattleGroundMgr.SendAreaSpiritHealerQueryOpcode(_player, bg, guid);
+    unit->SendAreaSpiritHealerQueryOpcode(GetPlayer());
 }
 
 void WorldSession::HandleAreaSpiritHealerQueueOpcode( WorldPacket & recv_data )
@@ -604,7 +607,7 @@ void WorldSession::HandleAreaSpiritHealerQueueOpcode( WorldPacket & recv_data )
     if(!unit->isSpiritService())                            // it's not spirit service
         return;
 
-    bg->AddPlayerToResurrectQueue(guid, _player->GetGUID());
+    Script->GossipHello(GetPlayer(), unit);
 }
 
 void WorldSession::HandleBattlemasterJoinArena( WorldPacket & recv_data )
@@ -708,7 +711,7 @@ void WorldSession::HandleBattlemasterJoinArena( WorldPacket & recv_data )
             Player *member = itr->getSource();
 
             // calc avg personal rating
-            avg_pers_rating += member->GetUInt32Value(PLAYER_FIELD_ARENA_TEAM_INFO_1_1 + (arenaslot*6) + 5);
+            avg_pers_rating += member->GetUInt32Value(PLAYER_FIELD_ARENA_TEAM_INFO_1_1 + (arenaslot * ARENA_TEAM_END) + ARENA_TEAM_PERSONAL_RATING);
         }
 
         if (arenatype)
