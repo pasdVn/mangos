@@ -123,6 +123,10 @@ void TargetedMovementGenerator<Creature>::Initialize(Creature &owner)
     if (((Creature*)&owner)->canFly())
         owner.AddMonsterMoveFlag(MONSTER_MOVE_FLY);
 
+    // make sure that owner is at maxspeed if TMG not run in follow mode
+    if (!owner.hasUnitState(UNIT_STAT_FOLLOW) && owner.GetSpeedRate(MOVE_RUN) != owner.GetMaxSpeedRate(MOVE_RUN))
+        owner.SetSpeed(MOVE_RUN, owner.GetMaxSpeedRate(MOVE_RUN), true);
+
     _setTargetLocation(owner);
 }
 
