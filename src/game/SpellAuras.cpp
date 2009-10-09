@@ -6211,6 +6211,10 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
 
     if (apply)
     {
+        // Savage Defense
+        if (m_spellProto->SpellFamilyName == SPELLFAMILY_DRUID && m_spellProto->SpellIconID == 50)
+            m_modifier.m_amount = int32(m_modifier.m_amount * m_target->GetTotalAttackPowerValue(BASE_ATTACK) / 100);
+
         // Check for custom scaling, default is 0%
         float CustomSpellPowerScaling = 0.0f;
         float CustomAttackPowerScaling = 0.0f;
