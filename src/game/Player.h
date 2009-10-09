@@ -1507,6 +1507,7 @@ class MANGOS_DLL_SPEC Player : public Unit
         void CharmSpellInitialize();
         void PossessSpellInitialize();
         void RemovePetActionBar();
+        void UpdatePetScalingAuras();
 
         bool HasSpell(uint32 spell) const;
         bool HasActiveSpell(uint32 spell) const;            // show in spellbook
@@ -1722,10 +1723,11 @@ class MANGOS_DLL_SPEC Player : public Unit
         float OCTRegenMPPerSpirit();
         float GetRatingCoefficient(CombatRating cr) const;
         float GetRatingBonusValue(CombatRating cr) const;
-        uint32 GetMeleeCritDamageReduction(uint32 damage) const;
-        uint32 GetRangedCritDamageReduction(uint32 damage) const;
-        uint32 GetSpellCritDamageReduction(uint32 damage) const;
-        uint32 GetDotDamageReduction(uint32 damage) const;
+        float GetResilenceMeleeCritChanceReduction(WeaponAttackType attackType) const;
+        float GetResilenceSpellCritChanceReduction() const { return GetRatingBonusValue(CR_CRIT_TAKEN_SPELL); }
+        uint32 GetResilenceMeleeCritDamageReduction(WeaponAttackType attackType, uint32 damage) const;
+        uint32 GetResilenceSpellCritDamageReduction(uint32 damage) const;
+        uint32 GetResilenceDotDamageReduction(uint32 damage) const;
         uint32 GetBaseSpellPowerBonus() { return m_baseSpellPower; }
 
         float GetExpertiseDodgeOrParryReduction(WeaponAttackType attType) const;
@@ -2517,6 +2519,8 @@ class MANGOS_DLL_SPEC Player : public Unit
         // Temporary removed pet cache
         uint32 m_temporaryUnsummonedPetNumber;
         uint32 m_oldpetspell;
+
+        uint32 m_petScalingUpdateTimer;
 
         AchievementMgr m_achievementMgr;
         ReputationMgr  m_reputationMgr;

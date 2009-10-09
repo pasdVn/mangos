@@ -311,6 +311,7 @@ Player::Player (WorldSession *session): Unit(), m_achievementMgr(this), m_reputa
 
     m_regenTimer = 0;
     m_weaponChangeTimer = 0;
+    m_petScalingUpdateTimer = 0;
 
     m_zoneUpdateId = 0;
     m_zoneUpdateTimer = 0;
@@ -1330,9 +1331,21 @@ void Player::Update( uint32 p_time )
     SendUpdateToOutOfRangeGroupMembers();
 
     Pet* pet = GetPet();
-    if(pet && !IsWithinDistInMap(pet, OWNER_MAX_DISTANCE) && (GetCharmGUID() && (pet->GetGUID() != GetCharmGUID())))
+    if(pet)
     {
-        RemovePet(pet, PET_SAVE_NOT_IN_SLOT, true);
+        if (!IsWithinDistInMap(pet, OWNER_MAX_DISTANCE) && (GetCharmGUID() && (pet->GetGUID() != GetCharmGUID())))
+            RemovePet(pet, PET_SAVE_NOT_IN_SLOT, true);
+        else if (m_petScalingUpdateTimer)
+        {
+            if (m_petScalingUpdateTimer <= p_time)
+            {
+                pet->UpdateScalingAuras();
+                m_petScalingUpdateTimer = 0;
+            }
+            else
+                m_petScalingUpdateTimer -= p_time;
+        }
+
     }
 
     //we should execute delayed teleports only for alive(!) players
@@ -4815,21 +4828,18 @@ float Player::GetRatingBonusValue(CombatRating cr) const
     return float(GetUInt32Value(PLAYER_FIELD_COMBAT_RATING_1 + cr)) / GetRatingCoefficient(cr);
 }
 
-uint32 Player::GetMeleeCritDamageReduction(uint32 damage) const
+uint32 Player::GetResilenceMeleeCritDamageReduction(WeaponAttackType attackType, uint32 damage) const
 {
-    float melee  = GetRatingBonusValue(CR_CRIT_TAKEN_MELEE)*2.2f;
+    float melee;
+    if (attackType ==RANGED_ATTACK)
+        melee = GetRatingBonusValue(CR_CRIT_TAKEN_RANGED)*2.2f;
+    else
+        melee = GetRatingBonusValue(CR_CRIT_TAKEN_MELEE)*2.2f;
     if (melee>33.0f) melee = 33.0f;
     return uint32 (melee * damage /100.0f);
 }
 
-uint32 Player::GetRangedCritDamageReduction(uint32 damage) const
-{
-    float ranged = GetRatingBonusValue(CR_CRIT_TAKEN_RANGED)*2.2f;
-    if (ranged>33.0f) ranged=33.0f;
-    return uint32 (ranged * damage /100.0f);
-}
-
-uint32 Player::GetSpellCritDamageReduction(uint32 damage) const
+uint32 Player::GetResilenceSpellCritDamageReduction(uint32 damage) const
 {
     float spell = GetRatingBonusValue(CR_CRIT_TAKEN_SPELL)*2.2f;
     // In wow script resilience limited to 33%
@@ -4838,13 +4848,21 @@ uint32 Player::GetSpellCritDamageReduction(uint32 damage) const
     return uint32 (spell * damage / 100.0f);
 }
 
-uint32 Player::GetDotDamageReduction(uint32 damage) const
+uint32 Player::GetResilenceDotDamageReduction(uint32 damage) const
 {
     float spellDot = GetRatingBonusValue(CR_CRIT_TAKEN_SPELL);
     // Dot resilience not limited (limit it by 100%)
     if (spellDot > 100.0f)
         spellDot = 100.0f;
     return uint32 (spellDot * damage / 100.0f);
+}
+
+float Player::GetResilenceMeleeCritChanceReduction(WeaponAttackType attackType) const
+{
+    if (attackType == RANGED_ATTACK)
+        return GetRatingBonusValue(CR_CRIT_TAKEN_RANGED);
+    else
+        return GetRatingBonusValue(CR_CRIT_TAKEN_MELEE);
 }
 
 float Player::GetExpertiseDodgeOrParryReduction(WeaponAttackType attType) const
@@ -16681,6 +16699,17 @@ void Player::RemovePetActionBar()
     WorldPacket data(SMSG_PET_SPELLS, 8);
     data << uint64(0);
     SendDirectMessage(&data);
+}
+
+void Player::UpdatePetScalingAuras()
+{
+    Pet* pet = GetPet();
+    if (!pet)
+        return;
+
+    // pet scaling auras will be updated with delay, to minimize cpu cycles
+    if (!m_petScalingUpdateTimer)
+        m_petScalingUpdateTimer = 1000;
 }
 
 bool Player::IsAffectedBySpellmod(SpellEntry const *spellInfo, SpellModifier *mod, Spell const* spell)

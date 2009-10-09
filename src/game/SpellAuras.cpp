@@ -4866,17 +4866,32 @@ void Aura::HandleAuraModStat(bool apply, bool /*Real*/)
         return;
     }
 
+    float healthPct = 0, manaPct = 0;
+
     for(int32 i = STAT_STRENGTH; i < MAX_STATS; i++)
     {
         // -1 or -2 is all stats ( misc < -2 checked in function beginning )
         if (m_modifier.m_miscvalue < 0 || m_modifier.m_miscvalue == i)
         {
+            if (GetSpellProto()->AttributesEx4 && SPELL_ATTR_EX4_DMG_CALC_FROM_OWNER_STAT)
+            {
+                if ( i == STAT_STAMINA)
+                    healthPct = float(m_target->GetHealth()) / m_target->GetMaxHealth();
+                else if ( i == STAT_INTELLECT)
+                    manaPct = float(m_target->GetPower(POWER_MANA)) / m_target->GetMaxPower(POWER_MANA);
+            }
+
             //m_target->ApplyStatMod(Stats(i), m_modifier.m_amount,apply);
             m_target->HandleStatModifier(UnitMods(UNIT_MOD_STAT_START + i), TOTAL_VALUE, float(m_modifier.m_amount), apply);
             if(m_target->GetTypeId() == TYPEID_PLAYER || ((Creature*)m_target)->isPet())
                 m_target->ApplyStatBuffMod(Stats(i), m_modifier.m_amount, apply);
         }
     }
+
+    if (healthPct > 0)
+        m_target->SetHealth(uint32(healthPct * m_target->GetMaxHealth()));
+    if (manaPct > 0)
+        m_target->SetPower(POWER_MANA, uint32(manaPct * m_target->GetMaxPower(POWER_MANA)));
 }
 
 void Aura::HandleModPercentStat(bool apply, bool /*Real*/)
@@ -6447,9 +6462,8 @@ void Aura::PeriodicTick()
             bool isCrit = IsCritFromAbilityAura(pCaster, pdamage);
 
             // As of 2.2 resilience reduces damage from DoT ticks as much as the chance to not be critically hit
-            // Reduce dot damage from resilience for players
-            if (m_target->GetTypeId() == TYPEID_PLAYER)
-                pdamage-=((Player*)m_target)->GetDotDamageReduction(pdamage);
+            // Reduce dot damage from resilience for players and pets
+            pdamage -= m_target->GetResilenceDotDamageReduction(pdamage);
 
             pCaster->CalcAbsorbResist(m_target, GetSpellSchoolMask(GetSpellProto()), DOT, pdamage, &absorb, &resist);
 
@@ -6507,9 +6521,8 @@ void Aura::PeriodicTick()
             pdamage = pCaster->SpellDamageBonus(m_target, GetSpellProto(), pdamage, DOT, GetStackAmount());
 
             // As of 2.2 resilience reduces damage from DoT ticks as much as the chance to not be critically hit
-            // Reduce dot damage from resilience for players
-            if (m_target->GetTypeId()==TYPEID_PLAYER)
-                pdamage-=((Player*)m_target)->GetDotDamageReduction(pdamage);
+            // Reduce dot damage from resilience for players and pets
+            pdamage -= m_target->GetResilenceDotDamageReduction(pdamage);
 
             pCaster->CalcAbsorbResist(m_target, GetSpellSchoolMask(GetSpellProto()), DOT, pdamage, &absorb, &resist);
 
@@ -6678,8 +6691,9 @@ void Aura::PeriodicTick()
             int32 drain_amount = m_target->GetPower(power) > pdamage ? pdamage : m_target->GetPower(power);
 
             // resilience reduce mana draining effect at spell crit damage reduction (added in 2.4)
-            if (power == POWER_MANA && m_target->GetTypeId() == TYPEID_PLAYER)
-                drain_amount -= ((Player*)m_target)->GetSpellCritDamageReduction(drain_amount);
+            if (power == POWER_MANA)
+                drain_amount -= m_target->GetResilenceDotDamageReduction(drain_amount);
+
 
             m_target->ModifyPower(power, -drain_amount);
 
@@ -6754,8 +6768,8 @@ void Aura::PeriodicTick()
                 return;
 
             // resilience reduce mana draining effect at spell crit damage reduction (added in 2.4)
-            if (powerType == POWER_MANA && m_target->GetTypeId() == TYPEID_PLAYER)
-                pdamage -= ((Player*)m_target)->GetSpellCritDamageReduction(pdamage);
+            if (powerType == POWER_MANA)
+                pdamage -= m_target->GetResilenceDotDamageReduction(pdamage);
 
             uint32 gain = uint32(-m_target->ModifyPower(powerType, -pdamage));
 

@@ -1037,7 +1037,12 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         float GetUnitBlockChance()    const;
         float GetUnitCriticalChance(WeaponAttackType attackType, const Unit *pVictim) const;
 
-        virtual uint32 GetShieldBlockValue() const =0;
+        virtual uint32 GetResilenceMeleeCritDamageReduction(WeaponAttackType attackType, uint32 damage) const {return 0;};
+        virtual uint32 GetResilenceSpellCritDamageReduction(uint32 damage) const {return 0;};
+        virtual float GetResilenceMeleeCritChanceReduction(WeaponAttackType attackType) const {return 0;};
+        virtual float GetResilenceSpellCritChanceReduction() const {return 0;};
+        virtual uint32 GetResilenceDotDamageReduction(uint32 damage) const {return 0;};
+        virtual uint32 GetShieldBlockValue() const = 0;
         uint32 GetUnitMeleeSkill(Unit const* target = NULL) const { return (target ? getLevelForTarget(target) : getLevel()) * 5; }
         uint32 GetDefenseSkillValue(Unit const* target = NULL) const;
         uint32 GetWeaponSkillValue(WeaponAttackType attType, Unit const* target = NULL) const;
@@ -1424,6 +1429,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         int32 SpellBaseDamageBonus(SpellSchoolMask schoolMask);
         int32 SpellBaseHealingBonus(SpellSchoolMask schoolMask);
         int32 SpellBaseDamageBonusForVictim(SpellSchoolMask schoolMask, Unit *pVictim);
+        int32 GetMaxSpellBaseDamageBonus(SpellSchoolMask schoolMask);
         int32 SpellBaseHealingBonusForVictim(SpellSchoolMask schoolMask, Unit *pVictim);
         uint32 SpellDamageBonus(Unit *pVictim, SpellEntry const *spellProto, uint32 damage, DamageEffectType damagetype, uint32 stack = 1);
         uint32 SpellHealingBonus(Unit *pVictim, SpellEntry const *spellProto, uint32 healamount, DamageEffectType damagetype, uint32 stack = 1);
