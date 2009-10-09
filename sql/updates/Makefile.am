@@ -38,6 +38,7 @@ pkgdata_DATA = \
 	custom/patch_body_and_soul_pasdVn.sql \
 	custom/patch_diverse_proc_flags_pasdVn.sql \
 	custom/patch_sacred_shield_pasdVn.sql \
+	custom/patch_pet_stats_pasdVn.sql \
 	7988_01_mangos_item_template.sql \
 	7988_02_characters_character_equipmentsets.sql \
 	7988_03_mangos_spell_chain.sql \
@@ -161,6 +162,7 @@ EXTRA_DIST = \
 	custom/patch_body_and_soul_pasdVn.sql \
 	custom/patch_diverse_proc_flags_pasdVn.sql \
 	custom/patch_sacred_shield_pasdVn.sql \
+	custom/patch_pet_stats_pasdVn.sql \
 	7988_01_mangos_item_template.sql \
 	7988_02_characters_character_equipmentsets.sql \
 	7988_03_mangos_spell_chain.sql \
