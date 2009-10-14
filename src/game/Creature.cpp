@@ -367,6 +367,9 @@ void Creature::Update(uint32 diff)
                 else
                     setDeathState( JUST_ALIVED );
 
+                if (GetMap()->IsBattleGround() && ((BattleGroundMap*)GetMap())->GetBG())
+                    ((BattleGroundMap*)GetMap())->GetBG()->OnCreatureRespawn(this); // for alterac valley needed to adjust the correct level again
+
                 //Call AI respawn virtual function
                 i_AI->JustRespawned();
 
@@ -709,6 +712,9 @@ bool Creature::isCanInteractWithBattleMaster(Player* pPlayer, bool msg) const
         return false;
 
     BattleGroundTypeId bgTypeId = sBattleGroundMgr.GetBattleMasterBG(GetEntry());
+    if (bgTypeId == BATTLEGROUND_TYPE_NONE)
+        return false;
+
     if(!msg)
         return pPlayer->GetBGAccessByLevel(bgTypeId);
 
@@ -966,6 +972,11 @@ void Creature::OnGossipSelect(Player* player, uint32 option)
         case GOSSIP_OPTION_BATTLEFIELD:
         {
             BattleGroundTypeId bgTypeId = sBattleGroundMgr.GetBattleMasterBG(GetEntry());
+            if (bgTypeId == BATTLEGROUND_TYPE_NONE)
+            {
+                sLog.outError("a user (guid %u) requested battlegroundlist from a npc who is no battlemaster", player->GetGUIDLow());
+                return;
+            }
             player->GetSession()->SendBattlegGroundList( GetGUID(), bgTypeId );
             break;
         }
@@ -1770,6 +1781,18 @@ bool Creature::IsVisibleInGridForPlayer(Player* pl) const
 
     // and not see any other
     return false;
+}
+
+void Creature::SendAIReaction(AiReaction reactionType)
+{
+    WorldPacket data(SMSG_AI_REACTION, 12);
+
+    data << uint64(GetGUID());
+    data << uint32(reactionType);
+
+    ((WorldObject*)this)->SendMessageToSet(&data, true);
+
+    sLog.outDebug("WORLD: Sent SMSG_AI_REACTION, type %u.", reactionType);
 }
 
 void Creature::CallAssistance()

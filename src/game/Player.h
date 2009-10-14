@@ -1726,8 +1726,9 @@ class MANGOS_DLL_SPEC Player : public Unit
         float GetResilenceMeleeCritChanceReduction(WeaponAttackType attackType) const;
         float GetResilenceSpellCritChanceReduction() const { return GetRatingBonusValue(CR_CRIT_TAKEN_SPELL); }
         uint32 GetResilenceMeleeCritDamageReduction(WeaponAttackType attackType, uint32 damage) const;
+        uint32 GetResilenceMeleeDamageReduction(WeaponAttackType attackType, uint32 damage) const;
         uint32 GetResilenceSpellCritDamageReduction(uint32 damage) const;
-        uint32 GetResilenceDotDamageReduction(uint32 damage) const;
+        uint32 GetResilenceSpellDamageReduction(uint32 damage) const;
         uint32 GetBaseSpellPowerBonus() { return m_baseSpellPower; }
 
         float GetExpertiseDodgeOrParryReduction(WeaponAttackType attType) const;

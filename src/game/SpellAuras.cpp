@@ -3631,51 +3631,7 @@ void Aura::HandleFeignDeath(bool apply, bool Real)
     if(!Real)
         return;
 
-    if(m_target->GetTypeId() != TYPEID_PLAYER)
-        return;
-
-    if( apply )
-    {
-        /*
-        WorldPacket data(SMSG_FEIGN_DEATH_RESISTED, 9);
-        data<<m_target->GetGUID();
-        data<<uint8(0);
-        m_target->SendMessageToSet(&data,true);
-        */
-                                                            // blizz like 2.0.x
-        m_target->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNK_29);
-                                                            // blizz like 2.0.x
-        m_target->SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_FEIGN_DEATH);
-                                                            // blizz like 2.0.x
-        m_target->SetFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_DEAD);
-
-        m_target->addUnitState(UNIT_STAT_DIED);
-        m_target->CombatStop();
-        m_target->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_IMMUNE_OR_LOST_SELECTION);
-
-        // prevent interrupt message
-        if (m_caster_guid==m_target->GetGUID())
-            m_target->FinishSpell(CURRENT_GENERIC_SPELL,false);
-        m_target->InterruptNonMeleeSpells(true);
-        m_target->getHostilRefManager().deleteReferences();
-    }
-    else
-    {
-        /*
-        WorldPacket data(SMSG_FEIGN_DEATH_RESISTED, 9);
-        data<<m_target->GetGUID();
-        data<<uint8(1);
-        m_target->SendMessageToSet(&data,true);
-        */
-                                                            // blizz like 2.0.x
-        m_target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNK_29);
-                                                            // blizz like 2.0.x
-        m_target->RemoveFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_FEIGN_DEATH);
-                                                            // blizz like 2.0.x
-        m_target->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_DEAD);
-
-        m_target->clearUnitState(UNIT_STAT_DIED);
-    }
+    m_target->SetFeignDeath(apply, GetCasterGUID(), GetId());
 }
 
 void Aura::HandleAuraModDisarm(bool apply, bool Real)
@@ -4147,7 +4103,7 @@ void Aura::HandleAuraModTotalThreat(bool apply, bool Real)
 
     float threatMod = apply ? float(m_modifier.m_amount) : float(-m_modifier.m_amount);
 
-    m_target->getHostilRefManager().threatAssist(caster, threatMod);
+    m_target->getHostileRefManager().threatAssist(caster, threatMod);
 
     // additional effects
     switch( m_spellProto->SpellFamilyName )
@@ -4165,7 +4121,7 @@ void Aura::HandleAuraModTotalThreat(bool apply, bool Real)
                     if( (*k)->GetModifier()->m_miscvalue == 8 )     // search for "Improved Shadow Form"
                     {
                         found = roll_chance_i((*k)->GetModifier()->m_amount);
-                        continue;
+                        break;
                     }
                 }
                 if( found )
@@ -6461,10 +6417,6 @@ void Aura::PeriodicTick()
             // This method can modify pdamage
             bool isCrit = IsCritFromAbilityAura(pCaster, pdamage);
 
-            // As of 2.2 resilience reduces damage from DoT ticks as much as the chance to not be critically hit
-            // Reduce dot damage from resilience for players and pets
-            pdamage -= m_target->GetResilenceDotDamageReduction(pdamage);
-
             pCaster->CalcAbsorbResist(m_target, GetSpellSchoolMask(GetSpellProto()), DOT, pdamage, &absorb, &resist);
 
             sLog.outDetail("PeriodicTick: %u (TypeId: %u) attacked %u (TypeId: %u) for %u dmg inflicted by %u abs is %u",
@@ -6520,10 +6472,6 @@ void Aura::PeriodicTick()
 
             pdamage = pCaster->SpellDamageBonus(m_target, GetSpellProto(), pdamage, DOT, GetStackAmount());
 
-            // As of 2.2 resilience reduces damage from DoT ticks as much as the chance to not be critically hit
-            // Reduce dot damage from resilience for players and pets
-            pdamage -= m_target->GetResilenceDotDamageReduction(pdamage);
-
             pCaster->CalcAbsorbResist(m_target, GetSpellSchoolMask(GetSpellProto()), DOT, pdamage, &absorb, &resist);
 
             if(m_target->GetHealth() < pdamage)
@@ -6558,7 +6506,7 @@ void Aura::PeriodicTick()
             uint32 heal = pCaster->SpellHealingBonus(pCaster, GetSpellProto(), uint32(new_damage * multiplier), DOT, GetStackAmount());
 
             int32 gain = pCaster->DealHeal(pCaster, heal, GetSpellProto());
-            pCaster->getHostilRefManager().threatAssist(pCaster, gain * 0.5f, GetSpellProto());
+            pCaster->getHostileRefManager().threatAssist(pCaster, gain * 0.5f, GetSpellProto());
             break;
         }
         case SPELL_AURA_PERIODIC_HEAL:
@@ -6610,7 +6558,7 @@ void Aura::PeriodicTick()
                 if( BattleGround *bg = ((Player*)pCaster)->GetBattleGround() )
                     bg->UpdatePlayerScore(((Player*)pCaster), SCORE_HEALING_DONE, gain);
 
-            m_target->getHostilRefManager().threatAssist(pCaster, float(gain) * 0.5f, GetSpellProto());
+            m_target->getHostileRefManager().threatAssist(pCaster, float(gain) * 0.5f, GetSpellProto());
 
             SpellEntry const* spellProto = GetSpellProto();
 
@@ -6692,7 +6640,7 @@ void Aura::PeriodicTick()
 
             // resilience reduce mana draining effect at spell crit damage reduction (added in 2.4)
             if (power == POWER_MANA)
-                drain_amount -= m_target->GetResilenceDotDamageReduction(drain_amount);
+                drain_amount -= m_target->GetResilenceSpellCritDamageReduction(drain_amount);
 
 
             m_target->ModifyPower(power, -drain_amount);
@@ -6747,7 +6695,7 @@ void Aura::PeriodicTick()
 
             int32 gain = m_target->ModifyPower(power,pdamage);
             if(Unit* pCaster = GetCaster())
-                m_target->getHostilRefManager().threatAssist(pCaster, float(gain) * 0.5f, GetSpellProto());
+                m_target->getHostileRefManager().threatAssist(pCaster, float(gain) * 0.5f, GetSpellProto());
             break;
         }
         case SPELL_AURA_POWER_BURN_MANA:
@@ -6769,7 +6717,7 @@ void Aura::PeriodicTick()
 
             // resilience reduce mana draining effect at spell crit damage reduction (added in 2.4)
             if (powerType == POWER_MANA)
-                pdamage -= m_target->GetResilenceDotDamageReduction(pdamage);
+                pdamage -= m_target->GetResilenceSpellCritDamageReduction(pdamage);
 
             uint32 gain = uint32(-m_target->ModifyPower(powerType, -pdamage));
 
@@ -6800,7 +6748,7 @@ void Aura::PeriodicTick()
         {
             int32 gain = m_target->ModifyHealth(m_modifier.m_amount);
             if (Unit *caster = GetCaster())
-                m_target->getHostilRefManager().threatAssist(caster, float(gain) * 0.5f, GetSpellProto());
+                m_target->getHostileRefManager().threatAssist(caster, float(gain) * 0.5f, GetSpellProto());
             break;
         }
         case SPELL_AURA_MOD_POWER_REGEN:

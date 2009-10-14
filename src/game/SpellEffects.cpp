@@ -2587,7 +2587,7 @@ void Spell::EffectHealPct( uint32 /*i*/ )
             modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_DAMAGE, addhealth, this);
 
         int32 gain = caster->DealHeal(unitTarget, addhealth, m_spellInfo);
-        unitTarget->getHostilRefManager().threatAssist(m_caster, float(gain) * 0.5f, m_spellInfo);
+        unitTarget->getHostileRefManager().threatAssist(m_caster, float(gain) * 0.5f, m_spellInfo);
     }
 }
 
@@ -3052,7 +3052,7 @@ void Spell::EffectOpenLock(uint32 effIndex)
             if (BattleGround *bg = player->GetBattleGround())
             {
                 // check if it's correct bg
-                if (bg && bg->GetTypeID() == BATTLEGROUND_AB)
+                if (bg->GetTypeID() == BATTLEGROUND_AB || bg->GetTypeID() == BATTLEGROUND_AV)
                     bg->EventPlayerClickedOnFlag(player, gameObjTarget);
                 return;
             }
@@ -5552,7 +5552,7 @@ void Spell::EffectSanctuary(uint32 /*i*/)
     //unitTarget->CombatStop();
 
     unitTarget->CombatStop();
-    unitTarget->getHostilRefManager().deleteReferences();   // stop all fighting
+    unitTarget->getHostileRefManager().deleteReferences();  // stop all fighting
     // Vanish allows to remove all threat and cast regular stealth so other spells can be used
     if(m_spellInfo->SpellFamilyName == SPELLFAMILY_ROGUE && (m_spellInfo->SpellFamilyFlags & SPELLFAMILYFLAG_ROGUE_VANISH))
     {

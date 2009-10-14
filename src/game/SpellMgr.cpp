@@ -2147,7 +2147,7 @@ void SpellMgr::LoadSpellScriptTarget()
 
     QueryResult *result = WorldDatabase.Query("SELECT entry,type,targetEntry FROM spell_script_target");
 
-    if(!result)
+    if (!result)
     {
         barGoLink bar(1);
 
@@ -2171,46 +2171,72 @@ void SpellMgr::LoadSpellScriptTarget()
 
         SpellEntry const* spellProto = sSpellStore.LookupEntry(spellId);
 
-        if(!spellProto)
+        if (!spellProto)
         {
             sLog.outErrorDb("Table `spell_script_target`: spellId %u listed for TargetEntry %u does not exist.",spellId,targetEntry);
             continue;
         }
 
         bool targetfound = false;
-        for(int i = 0; i <3; ++i)
+        for (int i = 0; i < 3; ++i)
         {
-            if( spellProto->EffectImplicitTargetA[i]==TARGET_SCRIPT ||
-                spellProto->EffectImplicitTargetB[i]==TARGET_SCRIPT ||
-                spellProto->EffectImplicitTargetA[i]==TARGET_SCRIPT_COORDINATES ||
-                spellProto->EffectImplicitTargetB[i]==TARGET_SCRIPT_COORDINATES ||
-                spellProto->EffectImplicitTargetA[i]==TARGET_FOCUS_OR_SCRIPTED_GAMEOBJECT ||
-                spellProto->EffectImplicitTargetB[i]==TARGET_FOCUS_OR_SCRIPTED_GAMEOBJECT )
+            if( spellProto->EffectImplicitTargetA[i] == TARGET_SCRIPT ||
+                spellProto->EffectImplicitTargetB[i] == TARGET_SCRIPT ||
+                spellProto->EffectImplicitTargetA[i] == TARGET_SCRIPT_COORDINATES ||
+                spellProto->EffectImplicitTargetB[i] == TARGET_SCRIPT_COORDINATES ||
+                spellProto->EffectImplicitTargetA[i] == TARGET_FOCUS_OR_SCRIPTED_GAMEOBJECT ||
+                spellProto->EffectImplicitTargetB[i] == TARGET_FOCUS_OR_SCRIPTED_GAMEOBJECT )
             {
                 targetfound = true;
                 break;
             }
         }
-        if(!targetfound)
+        if (!targetfound)
         {
-            sLog.outErrorDb("Table `spell_script_target`: spellId %u listed for TargetEntry %u does not have any implicit target TARGET_SCRIPT(38) or TARGET_SCRIPT_COORDINATES (46) or TARGET_FOCUS_OR_SCRIPTED_GAMEOBJECT (40).",spellId,targetEntry);
+            sLog.outErrorDb("Table `spell_script_target`: spellId %u listed for TargetEntry %u does not have any implicit target TARGET_SCRIPT(38) or TARGET_SCRIPT_COORDINATES (46) or TARGET_FOCUS_OR_SCRIPTED_GAMEOBJECT (40).", spellId, targetEntry);
             continue;
         }
 
-        if( type >= MAX_SPELL_TARGET_TYPE )
+        if (type >= MAX_SPELL_TARGET_TYPE)
         {
             sLog.outErrorDb("Table `spell_script_target`: target type %u for TargetEntry %u is incorrect.",type,targetEntry);
             continue;
         }
 
-        switch(type)
+        // More checks on TARGET_FOCUS_OR_SCRIPTED_GAMEOBJECT
+        bool ok = true;
+        for (int i = 0; i < 3; ++i)
+        {
+            if (spellProto->EffectImplicitTargetA[i] == TARGET_FOCUS_OR_SCRIPTED_GAMEOBJECT ||
+                spellProto->EffectImplicitTargetB[i] == TARGET_FOCUS_OR_SCRIPTED_GAMEOBJECT)
+            {
+                if (spellProto->RequiresSpellFocus)
+                {
+                    sLog.outErrorDb("Table `spell_script_target`: spellId %u for TargetEnty %u of type TARGET_FOCUS_OR_SCRIPTED_GAMEOBJECT is wrong because spell has implicit ReqSpellFocus %u.", spellId, targetEntry, spellProto->RequiresSpellFocus);
+                    ok = false;
+                    break;
+                }
+
+                if (type != SPELL_TARGET_TYPE_GAMEOBJECT)
+                {
+                    sLog.outErrorDb("Table `spell_script_target`: spellId %u has target type TARGET_FOCUS_OR_SCRIPTED_GAMEOBJECT but target in table is creature (must be gameobject).", spellId);
+                    ok = false;
+                    break;
+                }
+            }
+        }
+        if (!ok)
+            continue;
+
+        // Checks by target type
+        switch (type)
         {
             case SPELL_TARGET_TYPE_GAMEOBJECT:
             {
-                if( targetEntry==0 )
+                if (!targetEntry)
                     break;
 
-                if(!sGOStorage.LookupEntry<GameObjectInfo>(targetEntry))
+                if (!sGOStorage.LookupEntry<GameObjectInfo>(targetEntry))
                 {
                     sLog.outErrorDb("Table `spell_script_target`: gameobject template entry %u does not exist.",targetEntry);
                     continue;
@@ -2218,26 +2244,25 @@ void SpellMgr::LoadSpellScriptTarget()
                 break;
             }
             default:
-            {
-                if( targetEntry==0 )
+                if (!targetEntry)
                 {
                     sLog.outErrorDb("Table `spell_script_target`: target entry == 0 for not GO target type (%u).",type);
                     continue;
                 }
-                if(!sCreatureStorage.LookupEntry<CreatureInfo>(targetEntry))
+                if (const CreatureInfo* cInfo = sCreatureStorage.LookupEntry<CreatureInfo>(targetEntry))
+                {
+                    if (spellId == 30427 && !cInfo->SkinLootId)
+                    {
+                        sLog.outErrorDb("Table `spell_script_target` has creature %u as a target of spellid 30427, but this creature has no skinlootid. Gas extraction will not work!", cInfo->Entry);
+                        continue;
+                    }
+                }
+                else
                 {
                     sLog.outErrorDb("Table `spell_script_target`: creature template entry %u does not exist.",targetEntry);
                     continue;
                 }
-                const CreatureInfo* cInfo = sCreatureStorage.LookupEntry<CreatureInfo>(targetEntry);
-
-                if(spellId == 30427 && !cInfo->SkinLootId)
-                {
-                    sLog.outErrorDb("Table `spell_script_target` has creature %u as a target of spellid 30427, but this creature has no skinlootid. Gas extraction will not work!", cInfo->Entry);
-                    continue;
-                }
                 break;
-            }
         }
 
         mSpellScriptTarget.insert(SpellScriptTarget::value_type(spellId,SpellTargetEntry(SpellTargetType(type),targetEntry)));
@@ -2877,6 +2902,16 @@ SpellCastResult SpellMgr::GetSpellAllowedInLocationError(SpellEntry const *spell
 
     switch(spellInfo->Id)
     {
+        // a trinket in alterac valley allows to teleport to the boss
+        case 22564:                                         // recall
+        case 22563:                                         // recall
+        {
+            if (!player)
+                return SPELL_FAILED_REQUIRES_AREA;
+            BattleGround* bg = player->GetBattleGround();
+            return map_id == 30 && bg
+                && bg->GetStatus() != STATUS_WAIT_JOIN ? SPELL_CAST_OK : SPELL_FAILED_REQUIRES_AREA;
+        }
         case 23333:                                         // Warsong Flag
         case 23335:                                         // Silverwing Flag
             return map_id == 489 && player && player->InBattleGround() ? SPELL_CAST_OK : SPELL_FAILED_REQUIRES_AREA;

@@ -498,7 +498,7 @@ enum UnitFlags
     UNIT_FLAG_SILENCED              = 0x00002000,           // silenced, 2.1.1
     UNIT_FLAG_UNK_14                = 0x00004000,           // 2.0.8
     UNIT_FLAG_UNK_15                = 0x00008000,
-    UNIT_FLAG_UNK_16                = 0x00010000,
+    UNIT_FLAG_UNK_16                = 0x00010000,           // removes attackable icon
     UNIT_FLAG_PACIFIED              = 0x00020000,           // 3.0.3 ok
     UNIT_FLAG_STUNNED               = 0x00040000,           // 3.0.3 ok
     UNIT_FLAG_IN_COMBAT             = 0x00080000,
@@ -513,7 +513,7 @@ enum UnitFlags
     UNIT_FLAG_UNK_28                = 0x10000000,
     UNIT_FLAG_UNK_29                = 0x20000000,           // used in Feing Death spell
     UNIT_FLAG_SHEATHE               = 0x40000000,
-    UNIT_FLAG_UNK_31                = 0x80000000
+    UNIT_FLAG_UNK_31                = 0x80000000            // set skinnable icon and also changes color of portrait
 };
 
 // Value masks for UNIT_FIELD_FLAGS_2
@@ -927,7 +927,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         bool CanFreeMove() const
         {
             return !hasUnitState(UNIT_STAT_CONFUSED | UNIT_STAT_FLEEING | UNIT_STAT_IN_FLIGHT |
-                UNIT_STAT_ROOT | UNIT_STAT_STUNNED | UNIT_STAT_DISTRACTED ) && GetOwnerGUID()==0;
+                UNIT_STAT_ROOT | UNIT_STAT_STUNNED | UNIT_STAT_DISTRACTED | UNIT_STAT_DIED ) && GetOwnerGUID()==0;
         }
 
         uint32 getLevel() const { return GetUInt32Value(UNIT_FIELD_LEVEL); }
@@ -1041,7 +1041,8 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         virtual uint32 GetResilenceSpellCritDamageReduction(uint32 damage) const {return 0;};
         virtual float GetResilenceMeleeCritChanceReduction(WeaponAttackType attackType) const {return 0;};
         virtual float GetResilenceSpellCritChanceReduction() const {return 0;};
-        virtual uint32 GetResilenceDotDamageReduction(uint32 damage) const {return 0;};
+        virtual uint32 GetResilenceSpellDamageReduction(uint32 damage) const {return 0;};
+        virtual uint32 GetResilenceMeleeDamageReduction(WeaponAttackType attackType, uint32 damage) const {return 0;};
         virtual uint32 GetShieldBlockValue() const = 0;
         uint32 GetUnitMeleeSkill(Unit const* target = NULL) const { return (target ? getLevelForTarget(target) : getLevel()) * 5; }
         uint32 GetDefenseSkillValue(Unit const* target = NULL) const;
@@ -1320,6 +1321,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         void SetBaseWeaponDamage(WeaponAttackType attType ,WeaponDamageRange damageRange, float value) { m_weaponDamage[attType][damageRange] = value; }
 
         void SetInFront(Unit const* target);
+        void SetFacingToObject(WorldObject* pObject);
 
         // Visibility system
         UnitVisibility GetVisibility() const { return m_Visibility; }
@@ -1344,13 +1346,13 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         void AddThreat(Unit* pVictim, float threat, SpellSchoolMask schoolMask = SPELL_SCHOOL_MASK_NORMAL, SpellEntry const *threatSpell = NULL);
         float ApplyTotalThreatModifier(float threat, SpellSchoolMask schoolMask = SPELL_SCHOOL_MASK_NORMAL);
         void DeleteThreatList();
-        bool SelectHostilTarget();
+        bool SelectHostileTarget();
         void TauntApply(Unit* pVictim);
         void TauntFadeOut(Unit *taunter);
         ThreatManager& getThreatManager() { return m_ThreatManager; }
-        void addHatedBy(HostilReference* pHostilReference) { m_HostilRefManager.insertFirst(pHostilReference); };
-        void removeHatedBy(HostilReference* /*pHostilReference*/ ) { /* nothing to do yet */ }
-        HostilRefManager& getHostilRefManager() { return m_HostilRefManager; }
+        void addHatedBy(HostileReference* pHostileReference) { m_HostileRefManager.insertFirst(pHostileReference); };
+        void removeHatedBy(HostileReference* /*pHostileReference*/ ) { /* nothing to do yet */ }
+        HostileRefManager& getHostileRefManager() { return m_HostileRefManager; }
 
         uint32 GetVisibleAura(uint8 slot)
         {
@@ -1492,8 +1494,9 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         bool IsStopped() const { return !(hasUnitState(UNIT_STAT_MOVING)); }
         void StopMoving();
 
-        void SetFeared(bool apply, uint64 casterGUID = 0, uint32 spellID = 0, uint32 time = 0);
-        void SetConfused(bool apply, uint64 casterGUID = 0, uint32 spellID = 0);
+        void SetFeared(bool apply, uint64 const& casterGUID = 0, uint32 spellID = 0, uint32 time = 0);
+        void SetConfused(bool apply, uint64 const& casterGUID = 0, uint32 spellID = 0);
+        void SetFeignDeath(bool apply, uint64 const& casterGUID = 0, uint32 spellID = 0);
 
         void AddComboPointHolder(uint32 lowguid) { m_ComboPointHolders.insert(lowguid); }
         void RemoveComboPointHolder(uint32 lowguid) { m_ComboPointHolders.erase(lowguid); }
@@ -1594,7 +1597,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         // Manage all Units threatening us
         ThreatManager m_ThreatManager;
         // Manage all Units that are threatened by us
-        HostilRefManager m_HostilRefManager;
+        HostileRefManager m_HostileRefManager;
 
         FollowerRefManager m_FollowingRefManager;
 
