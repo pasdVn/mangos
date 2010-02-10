@@ -3940,7 +3940,7 @@ void Spell::EffectSummonGuardian(uint32 i, uint32 forceFaction)
             spawnCreature->SetDuration(duration);
 
         spawnCreature->SetOwnerGUID(m_caster->GetGUID());
-        spawnCreature->setPowerType(POWER_MANA);
+        spawnCreature->setPowerType(spawnCreature->GetCreatureInfo()->family == CREATURE_FAMILY_GHOUL ? POWER_ENERGY : POWER_MANA);
         spawnCreature->SetUInt32Value(UNIT_NPC_FLAGS, spawnCreature->GetCreatureInfo()->npcflag);
         spawnCreature->setFaction(forceFaction ? forceFaction : m_caster->getFaction());
         spawnCreature->SetUInt32Value(UNIT_FIELD_FLAGS, 0);
