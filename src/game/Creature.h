@@ -478,7 +478,7 @@ class MANGOS_DLL_SPEC Creature : public Unit
 
         void _AddCreatureSpellCooldown(uint32 spell_id, time_t end_time);
         void _AddCreatureCategoryCooldown(uint32 category, time_t apply_time);
-        void AddCreatureSpellCooldown(uint32 spellid);
+        void AddSpellAndCategoryCooldowns(SpellEntry const* spellInfo, uint32 itemId, Spell* spell = NULL, bool infinityCooldown = false);
         bool HasSpellCooldown(uint32 spell_id) const;
         bool HasCategoryCooldown(uint32 spell_id) const;
 
@@ -610,6 +610,7 @@ class MANGOS_DLL_SPEC Creature : public Unit
         void GetSummonPoint(float &fX, float &fY, float &fZ, float &fOrient) const { fX = m_summonXpoint; fY = m_summonYpoint; fZ = m_summonZpoint; fOrient = m_summonOrientation; }
 
         uint32 GetGlobalCooldown() const { return m_GlobalCooldown; }
+        void SetGlobalCooldown(uint32 gcd){ m_GlobalCooldown = gcd; }
 
         void SetDeadByDefault (bool death_state) { m_isDeadByDefault = death_state; }
 
