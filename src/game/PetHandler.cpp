@@ -170,8 +170,6 @@ void WorldSession::HandlePetAction( WorldPacket & recv_data )
         case ACT_ENABLED:                                   // 0xC1    spell
         {
             Unit* unit_target = NULL;
-            if (((Creature*)pet)->GetGlobalCooldown() > 0)
-                return;
 
             if(guid2)
                 unit_target = ObjectAccessor::GetUnit(*_player,guid2);
@@ -184,7 +182,10 @@ void WorldSession::HandlePetAction( WorldPacket & recv_data )
                 return;
             }
 
-            for(uint32 i = 0; i < 3;++i)
+            if (spellInfo->StartRecoveryTime && ((Creature*)pet)->GetGlobalCooldown() > 0)
+                return;
+
+            for(int i = 0; i < 3;++i)
             {
                 if(spellInfo->EffectImplicitTargetA[i] == TARGET_ALL_ENEMY_IN_AREA || spellInfo->EffectImplicitTargetA[i] == TARGET_ALL_ENEMY_IN_AREA_INSTANT || spellInfo->EffectImplicitTargetA[i] == TARGET_ALL_ENEMY_IN_AREA_CHANNELED)
                     return;
@@ -223,8 +224,6 @@ void WorldSession::HandlePetAction( WorldPacket & recv_data )
 
             if(result == SPELL_CAST_OK)
             {
-                ((Creature*)pet)->AddCreatureSpellCooldown(spellid);
-
                 unit_target = spell->m_targets.getUnitTarget();
 
                 //10% chance to play special pet attack talk, else growl
@@ -615,15 +614,15 @@ void WorldSession::HandlePetCastSpellOpcode( WorldPacket& recvPacket )
         return;
     }
 
-    if (pet->GetGlobalCooldown() > 0)
-        return;
-
     SpellEntry const *spellInfo = sSpellStore.LookupEntry(spellid);
     if (!spellInfo)
     {
         sLog.outError("WORLD: unknown PET spell id %i", spellid);
         return;
     }
+
+    if (spellInfo->StartRecoveryTime && pet->GetGlobalCooldown() > 0)
+        return;
 
     // do not cast not learned spells
     if (!pet->HasSpell(spellid) || IsPassiveSpell(spellid))
@@ -642,7 +641,6 @@ void WorldSession::HandlePetCastSpellOpcode( WorldPacket& recvPacket )
     SpellCastResult result = spell->CheckPetCast(NULL);
     if (result == SPELL_CAST_OK)
     {
-        pet->AddCreatureSpellCooldown(spellid);
         if (pet->isPet())
         {
             //10% chance to play special pet attack talk, else growl

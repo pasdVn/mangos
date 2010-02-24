@@ -1152,6 +1152,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         void CastCustomSpell(Unit* Victim,SpellEntry const *spellInfo, int32 const* bp0, int32 const* bp1, int32 const* bp2, bool triggered, Item *castItem= NULL, Aura* triggeredByAura = NULL, uint64 originalCaster = 0);
         void CastSpell(float x, float y, float z, uint32 spellId, bool triggered, Item *castItem = NULL, Aura* triggeredByAura = NULL, uint64 originalCaster = 0);
         void CastSpell(float x, float y, float z, SpellEntry const *spellInfo, bool triggered, Item *castItem = NULL, Aura* triggeredByAura = NULL, uint64 originalCaster = 0);
+        virtual void AddSpellAndCategoryCooldowns(SpellEntry const* spellInfo, uint32 itemId, Spell* spell = NULL, bool infinityCooldown = false) = 0;
 
         bool IsDamageToThreatSpell(SpellEntry const * spellInfo) const;
 
@@ -1206,6 +1207,7 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
             return GetGUID();
         }
         bool isCharmedOwnedByPlayerOrPlayer() const { return IS_PLAYER_GUID(GetCharmerOrOwnerOrOwnGUID()); }
+        bool isControlledByPlayer() const;
 
         Player* GetSpellModOwner();
 
