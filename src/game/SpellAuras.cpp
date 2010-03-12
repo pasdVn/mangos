@@ -2425,6 +2425,12 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                         owner_aura->SetStackAmount(3);
                     if (Aura* pet_aura = p_caster->GetPet()->GetDummyAura(58914))
                         pet_aura->SetStackAmount(3);
+
+                    // check for Focused Fire
+                    if (p_caster->GetDummyAura(35029))
+                        p_caster->CastSpell(p_caster, 60110,true);
+                    else if (p_caster->GetDummyAura(35030))
+                        p_caster->CastSpell(p_caster, 60113, true);
                     return;
                 }
                 break;
@@ -6390,6 +6396,8 @@ void Aura::HandleSpellSpecificBoosts(bool apply)
                     if (apply)
                         return;
                     spellId1 = 34026;                       // Kill Command, owner casting aura
+                    spellId2 = 60110;                       // Kill Command, Focused Fire addition
+                    spellId3 = 60113;
                     Unit* pet = m_target->GetPet();
                     if(!pet)
                         break;
