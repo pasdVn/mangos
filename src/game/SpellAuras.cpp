@@ -5106,10 +5106,28 @@ void Aura::HandleAuraModStat(bool apply, bool /*Real*/)
         // -1 or -2 is all stats ( misc < -2 checked in function beginning )
         if (m_modifier.m_miscvalue < 0 || m_modifier.m_miscvalue == i)
         {
+            // pet scaling aura workaround
+            float energyPct = 0.0f;
+            if (GetSpellProto()->AttributesEx4 & SPELL_ATTR_EX4_PET_SCALING_AURA)
+            {
+                if (m_modifier.m_miscvalue == STAT_STAMINA)
+                    energyPct = float(m_target->GetHealth())/m_target->GetMaxHealth();
+                else if (m_modifier.m_miscvalue == STAT_INTELLECT && m_target->GetMaxPower(POWER_MANA) > 0)
+                    energyPct = float(m_target->GetPower(POWER_MANA))/m_target->GetMaxPower(POWER_MANA);
+            }
+
             //m_target->ApplyStatMod(Stats(i), m_modifier.m_amount,apply);
             m_target->HandleStatModifier(UnitMods(UNIT_MOD_STAT_START + i), TOTAL_VALUE, float(m_modifier.m_amount), apply);
             if(m_target->GetTypeId() == TYPEID_PLAYER || ((Creature*)m_target)->isPet())
                 m_target->ApplyStatBuffMod(Stats(i), float(m_modifier.m_amount), apply);
+
+            if (energyPct)
+            {
+                if (m_modifier.m_miscvalue == STAT_STAMINA)
+                    m_target->SetHealth(m_target->GetMaxHealth()*energyPct);
+                else if (m_modifier.m_miscvalue == STAT_INTELLECT)
+                    m_target->SetPower(POWER_MANA,m_target->GetMaxPower(POWER_MANA)*energyPct);
+            }
         }
     }
 }
