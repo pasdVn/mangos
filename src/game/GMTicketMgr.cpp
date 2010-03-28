@@ -21,11 +21,10 @@
 #include "Database/SQLStorage.h"
 #include "GMTicketMgr.h"
 #include "ObjectMgr.h"
-#include "ObjectDefines.h"
+#include "ObjectGuid.h"
 #include "ProgressBar.h"
 #include "Policies/SingletonImp.h"
 #include "Player.h"
-#include "ObjectDefines.h"
 
 INSTANTIATE_SINGLETON_1(GMTicketMgr);
 
@@ -76,6 +75,6 @@ void GMTicketMgr::DeleteAll()
         if(Player* owner = sObjectMgr.GetPlayer(MAKE_NEW_GUID(itr->first, 0, HIGHGUID_PLAYER)))
             owner->GetSession()->SendGMTicketGetTicket(0x0A, 0);
     }
-    CharacterDatabase.PExecute("DELETE FROM character_ticket");
+    CharacterDatabase.Execute("DELETE FROM character_ticket");
     m_GMTicketMap.clear();
 }

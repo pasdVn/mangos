@@ -1676,7 +1676,7 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                 if (m_caster->GetTypeId()!=TYPEID_PLAYER)
                     return;
 
-                // checked in create item check, avoid unexpected 
+                // checked in create item check, avoid unexpected
                 if (Item* item = ((Player*)m_caster)->GetItemByLimitedCategory(ITEM_LIMIT_CATEGORY_MANA_GEM))
                     if (item->HasMaxCharges())
                         return;
@@ -2846,7 +2846,7 @@ void Spell::EffectApplyAura(SpellEffectIndex eff_idx)
     {
         // FIXME: currently we can't have auras applied explIcitly by gameobjects
         // so for auras from wild gameobjects (no owner) target used
-        if (IS_GAMEOBJECT_GUID(m_originalCasterGUID))
+        if (m_originalCasterGUID.IsGameobject())
             caster = unitTarget;
         else
             return;
@@ -3379,6 +3379,7 @@ void Spell::EffectEnergize(SpellEffectIndex eff_idx)
         case 31930:                                         // Judgements of the Wise
         case 48542:                                         // Revitalize (mana restore case)
         case 63375:                                         // Improved Stormstrike
+        case 68082:                                         // Glyph of Seal of Command
             damage = damage * unitTarget->GetCreateMana() / 100;
             break;
         default:
@@ -3863,6 +3864,7 @@ void Spell::DoSummon(SpellEffectIndex eff_idx)
         m_caster->GetClosePoint(x, y, z, spawnCreature->GetObjectSize());
 
     spawnCreature->Relocate(x, y, z, -m_caster->GetOrientation());
+    spawnCreature->SetSummonPoint(x, y, z, -m_caster->GetOrientation());
 
     if (!spawnCreature->IsPositionValid())
     {
@@ -3892,7 +3894,7 @@ void Spell::DoSummon(SpellEffectIndex eff_idx)
     spawnCreature->InitStatsForLevel(level, m_caster);
 
     spawnCreature->GetCharmInfo()->SetPetNumber(pet_number, false);
-    
+
     spawnCreature->UpdateWalkMode(m_caster);
 
     spawnCreature->AIM_Initialize();
@@ -4019,8 +4021,8 @@ void Spell::EffectDispel(SpellEffectIndex eff_idx)
         {
             int32 count = success_list.size();
             WorldPacket data(SMSG_SPELLDISPELLOG, 8+8+4+1+4+count*5);
-            data.append(unitTarget->GetPackGUID());         // Victim GUID
-            data.append(m_caster->GetPackGUID());           // Caster GUID
+            data << unitTarget->GetPackGUID();              // Victim GUID
+            data << m_caster->GetPackGUID();                // Caster GUID
             data << uint32(m_spellInfo->Id);                // Dispel spell id
             data << uint8(0);                               // not used
             data << uint32(count);                          // count
@@ -4280,6 +4282,7 @@ void Spell::DoSummonGuardian(SpellEffectIndex eff_idx, uint32 forceFaction)
             m_caster->GetClosePoint(px, py, pz,spawnCreature->GetObjectSize());
 
         spawnCreature->Relocate(px, py, pz, m_caster->GetOrientation());
+        spawnCreature->SetSummonPoint(px, py, pz, m_caster->GetOrientation());
 
         if (!spawnCreature->IsPositionValid())
         {
@@ -5486,7 +5489,7 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                             TemporarySummon* pSummon = (TemporarySummon*)pTarget;
 
                             // can only affect "own" summoned
-                            if (pSummon->GetSummonerGUID() == m_caster->GetGUID())
+                            if (pSummon->GetSummonerGuid() == m_caster->GetObjectGuid())
                             {
                                 if (pTarget->hasUnitState(UNIT_STAT_ROAMING | UNIT_STAT_ROAMING_MOVE))
                                     pTarget->GetMotionMaster()->MovementExpired();
@@ -6372,6 +6375,7 @@ void Spell::DoSummonTotem(SpellEffectIndex eff_idx, uint8 slot_dbc)
         z = m_caster->GetPositionZ();
 
     pTotem->Relocate(x, y, z, m_caster->GetOrientation());
+    pTotem->SetSummonPoint(x, y, z, m_caster->GetOrientation());
 
     if (slot < MAX_TOTEM_SLOT)
         m_caster->_AddTotem(TotemSlot(slot),pTotem);
@@ -6876,6 +6880,7 @@ void Spell::DoSummonCritter(SpellEffectIndex eff_idx, uint32 forceFaction)
          m_caster->GetClosePoint(x, y, z, critter->GetObjectSize());
 
     critter->Relocate(x, y, z, m_caster->GetOrientation());
+    critter->SetSummonPoint(x, y, z, m_caster->GetOrientation());
 
     if(!critter->IsPositionValid())
     {
@@ -7326,8 +7331,8 @@ void Spell::EffectStealBeneficialBuff(SpellEffectIndex eff_idx)
         {
             int32 count = success_list.size();
             WorldPacket data(SMSG_SPELLSTEALLOG, 8+8+4+1+4+count*5);
-            data.append(unitTarget->GetPackGUID());  // Victim GUID
-            data.append(m_caster->GetPackGUID());    // Caster GUID
+            data << unitTarget->GetPackGUID();       // Victim GUID
+            data << m_caster->GetPackGUID();         // Caster GUID
             data << uint32(m_spellInfo->Id);         // Dispell spell id
             data << uint8(0);                        // not used
             data << uint32(count);                   // count

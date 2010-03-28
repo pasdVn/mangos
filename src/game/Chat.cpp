@@ -25,7 +25,7 @@
 #include "Log.h"
 #include "World.h"
 #include "ObjectMgr.h"
-#include "ObjectDefines.h"
+#include "ObjectGuid.h"
 #include "Player.h"
 #include "UpdateMask.h"
 #include "Chat.h"
@@ -899,10 +899,10 @@ bool ChatHandler::ExecuteCommandInTable(ChatCommand *table, const char* text, co
                 if (m_session)
                 {
                     Player* p = m_session->GetPlayer();
-                    uint64 sel_guid = p->GetSelection();
-                    sLog.outCommand(GetAccountId(),"Command: %s [Player: %s (Account: %u) X: %f Y: %f Z: %f Map: %u Selected: %s (GUID: %u)]",
+                    ObjectGuid sel_guid = p->GetSelection();
+                    sLog.outCommand(GetAccountId(),"Command: %s [Player: %s (Account: %u) X: %f Y: %f Z: %f Map: %u Selected: %s]",
                         fullcmd.c_str(),p->GetName(),GetAccountId(),p->GetPositionX(),p->GetPositionY(),p->GetPositionZ(),p->GetMapId(),
-                        GetLogNameForGuid(sel_guid),GUID_LOPART(sel_guid));
+                        sel_guid.GetString().c_str());
                 }
                 else                                        // 0 account -> console
                 {
@@ -1748,9 +1748,9 @@ void ChatHandler::FillMessageData( WorldPacket *data, WorldSession* session, uin
             *data << uint32(0);                             // 2.1.0
             *data << uint32(strlen(speaker->GetName()) + 1);
             *data << speaker->GetName();
-            uint64 listener_guid = 0;
-            *data << uint64(listener_guid);
-            if(listener_guid && !IS_PLAYER_GUID(listener_guid))
+            ObjectGuid listener_guid;
+            *data << listener_guid;
+            if (!listener_guid.IsEmpty() && !listener_guid.IsPlayer())
             {
                 *data << uint32(1);                         // string listener_name_length
                 *data << uint8(0);                          // string listener_name
