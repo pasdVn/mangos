@@ -314,7 +314,7 @@ class MANGOS_DLL_SPEC Object
 
         PackedGuid m_PackGUID;
 
-        // for output helpfull error messages from asserts
+        // for output helpfull error messages from ASSERTs
         bool PrintIndexError(uint32 index, bool set) const;
         Object(const Object&);                              // prevent generation copy constructor
         Object& operator=(Object const&);                   // prevent generation assigment operator
@@ -380,7 +380,7 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         uint32 GetAreaId() const;
         void GetZoneAndAreaId(uint32& zoneid, uint32& areaid) const;
 
-        InstanceData* GetInstanceData();
+        InstanceData* GetInstanceData() const;
 
         const char* GetName() const { return m_name.c_str(); }
         void SetName(const std::string& newname) { m_name=newname; }
@@ -429,6 +429,7 @@ class MANGOS_DLL_SPEC WorldObject : public Object
 
         virtual void SendMessageToSet(WorldPacket *data, bool self);
         virtual void SendMessageToSetInRange(WorldPacket *data, float dist, bool self);
+        void SendMessageToSetExcept(WorldPacket *data, Player const* skipped_receiver);
 
         void MonsterSay(const char* text, uint32 language, uint64 TargetGuid);
         void MonsterYell(const char* text, uint32 language, uint64 TargetGuid);
@@ -498,4 +499,5 @@ class MANGOS_DLL_SPEC WorldObject : public Object
         float m_positionZ;
         float m_orientation;
 };
+
 #endif

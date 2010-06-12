@@ -242,7 +242,7 @@ WorldSocketMgr::StartReactiveIO (ACE_UINT16 port, const char* address)
 
     m_NetThreads = new ReactorRunnable[m_NetThreadsCount];
 
-    sLog.outBasic ("Max allowed socket connections %d",ACE::max_handles ());
+    BASIC_LOG("Max allowed socket connections %d",ACE::max_handles ());
 
     // -1 means use default
     m_SockOutKBuff = sConfig.GetIntDefault ("Network.OutKBuff", -1);
@@ -273,12 +273,15 @@ WorldSocketMgr::StartReactiveIO (ACE_UINT16 port, const char* address)
 }
 
 int
-WorldSocketMgr::StartNetwork (ACE_UINT16 port, const char* address)
+WorldSocketMgr::StartNetwork (ACE_UINT16 port, std::string& address)
 {
-    if (!sLog.IsOutDebug ())
+    m_addr = address;
+    m_port = port;
+
+    if (!sLog.HasLogLevelOrHigher(LOG_LVL_DEBUG))
         ACE_Log_Msg::instance ()->priority_mask (LM_ERROR, ACE_Log_Msg::PROCESS);
 
-    if (StartReactiveIO (port, address) == -1)
+    if (StartReactiveIO (port, address.c_str()) == -1)
         return -1;
 
     return 0;

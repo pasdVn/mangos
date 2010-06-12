@@ -35,6 +35,8 @@
 #include "BattleGroundMgr.h"
 #include "MapManager.h"
 #include "SocialMgr.h"
+#include "Auth/AuthCrypt.h"
+#include "Auth/HMACSHA1.h"
 #include "zlib/zlib.h"
 
 /// WorldSession constructor
@@ -43,7 +45,7 @@ LookingForGroup_auto_join(false), LookingForGroup_auto_add(false), m_muteTime(mu
 _player(NULL), m_Socket(sock),_security(sec), _accountId(id), m_expansion(expansion),
 m_sessionDbcLocale(sWorld.GetAvailableDbcLocale(locale)), m_sessionDbLocaleIndex(sObjectMgr.GetIndexForLocale(locale)),
 _logoutTime(0), m_inQueue(false), m_playerLoading(false), m_playerLogout(false), m_playerRecentlyLogout(false), m_playerSave(false),
-m_latency(0), m_TutorialsChanged(false)
+m_latency(0), m_tutorialState(TUTORIALDATA_UNCHANGED)
 {
     if (sock)
     {
@@ -117,8 +119,8 @@ void WorldSession::SendPacket(WorldPacket const* packet)
     {
         uint64 minTime = uint64(cur_time - lastTime);
         uint64 fullTime = uint64(lastTime - firstTime);
-        sLog.outDetail("Send all time packets count: " UI64FMTD " bytes: " UI64FMTD " avr.count/sec: %f avr.bytes/sec: %f time: %u",sendPacketCount,sendPacketBytes,float(sendPacketCount)/fullTime,float(sendPacketBytes)/fullTime,uint32(fullTime));
-        sLog.outDetail("Send last min packets count: " UI64FMTD " bytes: " UI64FMTD " avr.count/sec: %f avr.bytes/sec: %f",sendLastPacketCount,sendLastPacketBytes,float(sendLastPacketCount)/minTime,float(sendLastPacketBytes)/minTime);
+        DETAIL_LOG("Send all time packets count: " UI64FMTD " bytes: " UI64FMTD " avr.count/sec: %f avr.bytes/sec: %f time: %u",sendPacketCount,sendPacketBytes,float(sendPacketCount)/fullTime,float(sendPacketBytes)/fullTime,uint32(fullTime));
+        DETAIL_LOG("Send last min packets count: " UI64FMTD " bytes: " UI64FMTD " avr.count/sec: %f avr.bytes/sec: %f",sendLastPacketCount,sendLastPacketBytes,float(sendLastPacketCount)/minTime,float(sendLastPacketBytes)/minTime);
 
         lastTime = cur_time;
         sendLastPacketCount = 1;
@@ -184,7 +186,7 @@ bool WorldSession::Update(uint32 /*diff*/)
                     else if(_player->IsInWorld())
                     {
                         (this->*opHandle.handler)(*packet);
-                        if (sLog.IsOutDebug() && packet->rpos() < packet->wpos())
+                        if (packet->rpos() < packet->wpos() && sLog.HasLogLevelOrHigher(LOG_LVL_DEBUG))
                             LogUnprocessedTail(packet);
                     }
                     // lag can cause STATUS_LOGGEDIN opcodes to arrive after the player started a transfer
@@ -198,7 +200,7 @@ bool WorldSession::Update(uint32 /*diff*/)
                     {
                         // not expected _player or must checked in packet hanlder
                         (this->*opHandle.handler)(*packet);
-                        if (sLog.IsOutDebug() && packet->rpos() < packet->wpos())
+                        if (packet->rpos() < packet->wpos() && sLog.HasLogLevelOrHigher(LOG_LVL_DEBUG))
                             LogUnprocessedTail(packet);
                     }
                     break;
@@ -210,7 +212,7 @@ bool WorldSession::Update(uint32 /*diff*/)
                     else
                     {
                         (this->*opHandle.handler)(*packet);
-                        if (sLog.IsOutDebug() && packet->rpos() < packet->wpos())
+                        if (packet->rpos() < packet->wpos() && sLog.HasLogLevelOrHigher(LOG_LVL_DEBUG))
                             LogUnprocessedTail(packet);
                     }
                     break;
@@ -228,7 +230,7 @@ bool WorldSession::Update(uint32 /*diff*/)
                         m_playerRecentlyLogout = false;
 
                     (this->*opHandle.handler)(*packet);
-                    if (sLog.IsOutDebug() && packet->rpos() < packet->wpos())
+                    if (packet->rpos() < packet->wpos() && sLog.HasLogLevelOrHigher(LOG_LVL_DEBUG))
                         LogUnprocessedTail(packet);
                     break;
                 case STATUS_NEVER:
@@ -237,7 +239,7 @@ bool WorldSession::Update(uint32 /*diff*/)
                         packet->GetOpcode());
                     break;
                 case STATUS_UNHANDLED:
-                    sLog.outDebug("SESSION: received not handled opcode %s (0x%.4X)",
+                    DEBUG_LOG("SESSION: received not handled opcode %s (0x%.4X)",
                         LookupOpcodeName(packet->GetOpcode()),
                         packet->GetOpcode());
                     break;
@@ -252,7 +254,7 @@ bool WorldSession::Update(uint32 /*diff*/)
         {
             sLog.outError("WorldSession::Update ByteBufferException occured while parsing a packet (opcode: %u) from client %s, accountid=%i.",
                     packet->GetOpcode(), GetRemoteAddress().c_str(), GetAccountId());
-            if(sLog.IsOutDebug())
+            if (sLog.HasLogLevelOrHigher(LOG_LVL_DEBUG))
             {
                 sLog.outDebug("Dumping error causing packet:");
                 packet->hexlike();
@@ -260,7 +262,7 @@ bool WorldSession::Update(uint32 /*diff*/)
 
             if (sWorld.getConfig(CONFIG_BOOL_KICK_PLAYER_ON_BAD_PACKET))
             {
-                sLog.outDetail("Disconnecting session [account id %u / address %s] for badly formatted packet.",
+                DETAIL_LOG("Disconnecting session [account id %u / address %s] for badly formatted packet.",
                     GetAccountId(), GetRemoteAddress().c_str());
 
                 KickPlayer();
@@ -300,6 +302,8 @@ void WorldSession::LogoutPlayer(bool Save)
 
     if (_player)
     {
+        sLog.outChar("Account: %d (IP: %s) Logout Character:[%s] (guid: %u)", GetAccountId(), GetRemoteAddress().c_str(), _player->GetName() ,_player->GetGUIDLow());
+
         if (uint64 lguid = GetPlayer()->GetLootGUID())
             DoLootRelease(lguid);
 
@@ -450,7 +454,7 @@ void WorldSession::LogoutPlayer(bool Save)
         //No SQL injection as AccountId is uint32
         CharacterDatabase.PExecute("UPDATE characters SET online = 0 WHERE account = '%u'",
             GetAccountId());
-        sLog.outDebug( "SESSION: Sent SMSG_LOGOUT_COMPLETE Message" );
+        DEBUG_LOG( "SESSION: Sent SMSG_LOGOUT_COMPLETE Message" );
     }
 
     m_playerLogout = false;
@@ -672,21 +676,24 @@ void WorldSession::LoadTutorialsData()
 
     QueryResult *result = CharacterDatabase.PQuery("SELECT tut0,tut1,tut2,tut3,tut4,tut5,tut6,tut7 FROM character_tutorial WHERE account = '%u'", GetAccountId());
 
-    if(result)
+    if(!result)
     {
-        do
-        {
-            Field *fields = result->Fetch();
-
-            for (int iI = 0; iI < 8; ++iI)
-                m_Tutorials[iI] = fields[iI].GetUInt32();
-        }
-        while( result->NextRow() );
-
-        delete result;
+        m_tutorialState = TUTORIALDATA_NEW;
+        return;
     }
 
-    m_TutorialsChanged = false;
+    do
+    {
+        Field *fields = result->Fetch();
+
+        for (int iI = 0; iI < 8; ++iI)
+            m_Tutorials[iI] = fields[iI].GetUInt32();
+    }
+    while( result->NextRow() );
+
+    delete result;
+
+    m_tutorialState = TUTORIALDATA_UNCHANGED;
 }
 
 void WorldSession::SendTutorialsData()
@@ -699,29 +706,19 @@ void WorldSession::SendTutorialsData()
 
 void WorldSession::SaveTutorialsData()
 {
-    if(!m_TutorialsChanged)
-        return;
-
-    uint32 Rows=0;
-    // it's better than rebuilding indexes multiple times
-    QueryResult *result = CharacterDatabase.PQuery("SELECT count(*) AS r FROM character_tutorial WHERE account = '%u'", GetAccountId());
-    if(result)
+    switch(m_tutorialState)
     {
-        Rows = result->Fetch()[0].GetUInt32();
-        delete result;
+        case TUTORIALDATA_CHANGED:
+            CharacterDatabase.PExecute("UPDATE character_tutorial SET tut0='%u', tut1='%u', tut2='%u', tut3='%u', tut4='%u', tut5='%u', tut6='%u', tut7='%u' WHERE account = '%u'",
+                m_Tutorials[0], m_Tutorials[1], m_Tutorials[2], m_Tutorials[3], m_Tutorials[4], m_Tutorials[5], m_Tutorials[6], m_Tutorials[7], GetAccountId());
+            break;
+        case TUTORIALDATA_NEW:
+            CharacterDatabase.PExecute("INSERT INTO character_tutorial (account,tut0,tut1,tut2,tut3,tut4,tut5,tut6,tut7) VALUES ('%u', '%u', '%u', '%u', '%u', '%u', '%u', '%u', '%u')",
+                GetAccountId(), m_Tutorials[0], m_Tutorials[1], m_Tutorials[2], m_Tutorials[3], m_Tutorials[4], m_Tutorials[5], m_Tutorials[6], m_Tutorials[7]);
+            break;
     }
 
-    if (Rows)
-    {
-        CharacterDatabase.PExecute("UPDATE character_tutorial SET tut0='%u', tut1='%u', tut2='%u', tut3='%u', tut4='%u', tut5='%u', tut6='%u', tut7='%u' WHERE account = '%u'",
-            m_Tutorials[0], m_Tutorials[1], m_Tutorials[2], m_Tutorials[3], m_Tutorials[4], m_Tutorials[5], m_Tutorials[6], m_Tutorials[7], GetAccountId());
-    }
-    else
-    {
-        CharacterDatabase.PExecute("INSERT INTO character_tutorial (account,tut0,tut1,tut2,tut3,tut4,tut5,tut6,tut7) VALUES ('%u', '%u', '%u', '%u', '%u', '%u', '%u', '%u', '%u')", GetAccountId(), m_Tutorials[0], m_Tutorials[1], m_Tutorials[2], m_Tutorials[3], m_Tutorials[4], m_Tutorials[5], m_Tutorials[6], m_Tutorials[7]);
-    }
-
-    m_TutorialsChanged = false;
+    m_tutorialState = TUTORIALDATA_UNCHANGED;
 }
 
 void WorldSession::ReadAddonsInfo(WorldPacket &data)
@@ -766,7 +763,7 @@ void WorldSession::ReadAddonsInfo(WorldPacket &data)
 
             addonInfo >> enabled >> crc >> unk1;
 
-            sLog.outDebug("ADDON: Name: %s, Enabled: 0x%x, CRC: 0x%x, Unknown2: 0x%x", addonName.c_str(), enabled, crc, unk1);
+            DEBUG_LOG("ADDON: Name: %s, Enabled: 0x%x, CRC: 0x%x, Unknown2: 0x%x", addonName.c_str(), enabled, crc, unk1);
 
             m_addonsList.push_back(AddonInfo(addonName, enabled, crc));
         }
@@ -775,7 +772,7 @@ void WorldSession::ReadAddonsInfo(WorldPacket &data)
         addonInfo >> unk2;
 
         if(addonInfo.rpos() != addonInfo.size())
-            sLog.outDebug("packet under read!");
+            DEBUG_LOG("packet under read!");
     }
     else
         sLog.outError("Addon packet uncompress error!");
@@ -842,6 +839,7 @@ void WorldSession::SendAddonsInfo()
         string (16 bytes)
         uint32
         uint32
+        uint32
     }*/
 
     SendPacket(&data);
@@ -854,4 +852,23 @@ void WorldSession::SetPlayer( Player *plr )
     // set m_GUID that can be used while player loggined and later until m_playerRecentlyLogout not reset
     if(_player)
         m_GUIDLow = _player->GetGUIDLow();
+}
+
+void WorldSession::SendRedirectClient(std::string& ip, uint16 port)
+{
+    uint32 ip2 = ACE_OS::inet_addr(ip.c_str());
+    WorldPacket pkt(SMSG_REDIRECT_CLIENT, 4 + 2 + 4 + 20);
+
+    pkt << uint32(ip2);                                     // inet_addr(ipstr)
+    pkt << uint16(port);                                    // port
+
+    pkt << uint32(GetLatency());                            // latency-related?
+
+    HMACSHA1 sha1(20, m_Socket->GetSessionKey().AsByteArray());
+    sha1.UpdateData((uint8*)&ip2, 4);
+    sha1.UpdateData((uint8*)&port, 2);
+    sha1.Finalize();
+    pkt.append(sha1.GetDigest(), 20);                       // hmacsha1(ip+port) w/ sessionkey as seed
+
+    SendPacket(&pkt);
 }

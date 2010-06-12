@@ -29,14 +29,14 @@ void WorldSession::HandleAttackSwingOpcode( WorldPacket & recv_data )
     ObjectGuid guid;
     recv_data >> guid;
 
-    DEBUG_LOG("WORLD: Recvd CMSG_ATTACKSWING Message %s", guid.GetString().c_str());
+    DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "WORLD: Recvd CMSG_ATTACKSWING Message %s", guid.GetString().c_str());
 
     Unit *pEnemy = ObjectAccessor::GetUnit(*_player, guid);
 
     if(!pEnemy)
     {
         if(!guid.IsUnit())
-            sLog.outError("WORLD: %u isn't player, pet or creature", guid.GetString().c_str());
+            sLog.outError("WORLD: %s isn't player, pet or creature", guid.GetString().c_str());
         else
             sLog.outError( "WORLD: Enemy %s not found", guid.GetString().c_str());
 
@@ -75,7 +75,7 @@ void WorldSession::HandleSetSheathedOpcode( WorldPacket & recv_data )
     uint32 sheathed;
     recv_data >> sheathed;
 
-    //sLog.outDebug( "WORLD: Recvd CMSG_SETSHEATHED Message guidlow:%u value1:%u", GetPlayer()->GetGUIDLow(), sheathed );
+    //DEBUG_LOG( "WORLD: Recvd CMSG_SETSHEATHED Message guidlow:%u value1:%u", GetPlayer()->GetGUIDLow(), sheathed );
 
     if(sheathed >= MAX_SHEATH_STATE)
     {

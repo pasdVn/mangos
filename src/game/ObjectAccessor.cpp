@@ -92,22 +92,21 @@ ObjectAccessor::FindPlayer(ObjectGuid guid)
 Player*
 ObjectAccessor::FindPlayerByName(const char *name)
 {
-    //TODO: Player Guard
-    HashMapHolder<Player>::MapType& m = HashMapHolder<Player>::GetContainer();
-    HashMapHolder<Player>::MapType::iterator iter = m.begin();
-    for(; iter != m.end(); ++iter)
+    HashMapHolder<Player>::ReadGuard g(HashMapHolder<Player>::GetLock());
+    HashMapHolder<Player>::MapType& m = sObjectAccessor.GetPlayers();
+    for(HashMapHolder<Player>::MapType::iterator iter = m.begin(); iter != m.end(); ++iter)
         if(iter->second->IsInWorld() && ( ::strcmp(name, iter->second->GetName()) == 0 ))
             return iter->second;
+
     return NULL;
 }
 
 void
 ObjectAccessor::SaveAllPlayers()
 {
-    Guard guard(*HashMapHolder<Player>::GetLock());
-    HashMapHolder<Player>::MapType& m = HashMapHolder<Player>::GetContainer();
-    HashMapHolder<Player>::MapType::iterator itr = m.begin();
-    for(; itr != m.end(); ++itr)
+    HashMapHolder<Player>::ReadGuard g(HashMapHolder<Player>::GetLock());
+    HashMapHolder<Player>::MapType& m = sObjectAccessor.GetPlayers();
+    for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
         itr->second->SaveToDB();
 }
 
@@ -129,7 +128,7 @@ ObjectAccessor::GetCorpseForPlayerGUID(ObjectGuid guid)
     Player2CorpsesMapType::iterator iter = i_player2corpse.find(guid.GetRawValue());
     if( iter == i_player2corpse.end() ) return NULL;
 
-    assert(iter->second->GetType() != CORPSE_BONES);
+    ASSERT(iter->second->GetType() != CORPSE_BONES);
 
     return iter->second;
 }
@@ -137,7 +136,7 @@ ObjectAccessor::GetCorpseForPlayerGUID(ObjectGuid guid)
 void
 ObjectAccessor::RemoveCorpse(Corpse *corpse)
 {
-    assert(corpse && corpse->GetType() != CORPSE_BONES);
+    ASSERT(corpse && corpse->GetType() != CORPSE_BONES);
 
     Guard guard(i_corpseGuard);
     Player2CorpsesMapType::iterator iter = i_player2corpse.find(corpse->GetOwnerGUID());
@@ -157,10 +156,10 @@ ObjectAccessor::RemoveCorpse(Corpse *corpse)
 void
 ObjectAccessor::AddCorpse(Corpse *corpse)
 {
-    assert(corpse && corpse->GetType() != CORPSE_BONES);
+    ASSERT(corpse && corpse->GetType() != CORPSE_BONES);
 
     Guard guard(i_corpseGuard);
-    assert(i_player2corpse.find(corpse->GetOwnerGUID()) == i_player2corpse.end());
+    ASSERT(i_player2corpse.find(corpse->GetOwnerGUID()) == i_player2corpse.end());
     i_player2corpse[corpse->GetOwnerGUID()] = corpse;
 
     // build mapid*cellid -> guid_set map
@@ -258,10 +257,26 @@ ObjectAccessor::ConvertCorpseForPlayer(ObjectGuid player_guid, bool insignia)
     return bones;
 }
 
+void ObjectAccessor::RemoveOldCorpses()
+{
+    time_t now = time(NULL);
+    Player2CorpsesMapType::iterator next;
+    for(Player2CorpsesMapType::iterator itr = i_player2corpse.begin(); itr != i_player2corpse.end(); itr = next)
+    {
+        next = itr;
+        ++next;
+
+        if(!itr->second->IsExpired(now))
+            continue;
+
+        ConvertCorpseForPlayer(itr->first);
+    }
+}
+
 /// Define the static member of HashMapHolder
 
 template <class T> UNORDERED_MAP< uint64, T* > HashMapHolder<T>::m_objectMap;
-template <class T> ACE_Thread_Mutex HashMapHolder<T>::i_lock;
+template <class T> ACE_RW_Thread_Mutex HashMapHolder<T>::i_lock;
 
 /// Global definitions for the hashmap storage
 

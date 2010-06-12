@@ -76,18 +76,6 @@ void MapInstanced::RemoveAllObjectsInRemoveList()
     Map::RemoveAllObjectsInRemoveList();
 }
 
-bool MapInstanced::RemoveBones(uint64 guid, float x, float y)
-{
-    bool remove_result = false;
-
-    for (InstancedMaps::iterator i = m_InstancedMaps.begin(); i != m_InstancedMaps.end(); ++i)
-    {
-        remove_result = remove_result || i->second->RemoveBones(guid, x, y);
-    }
-
-    return remove_result || Map::RemoveBones(guid,x,y);
-}
-
 void MapInstanced::UnloadAll(bool pForce)
 {
     // Unload instanced maps
@@ -170,19 +158,19 @@ InstanceMap* MapInstanced::CreateInstance(uint32 InstanceId, InstanceSave *save,
     if (!sMapStore.LookupEntry(GetId()))
     {
         sLog.outError("CreateInstance: no entry for map %d", GetId());
-        assert(false);
+        ASSERT(false);
     }
     if (!ObjectMgr::GetInstanceTemplate(GetId()))
     {
         sLog.outError("CreateInstance: no instance template for map %d", GetId());
-        assert(false);
+        ASSERT(false);
     }
 
     // some instances only have one difficulty
     if (!GetMapDifficultyData(GetId(),difficulty))
         difficulty = DUNGEON_DIFFICULTY_NORMAL;
 
-    sLog.outDebug("MapInstanced::CreateInstance: %s map instance %d for %d created with difficulty %s", save?"":"new ", InstanceId, GetId(), difficulty?"heroic":"normal");
+    DEBUG_LOG("MapInstanced::CreateInstance: %s map instance %d for %d created with difficulty %s", save?"":"new ", InstanceId, GetId(), difficulty?"heroic":"normal");
 
     InstanceMap *map = new InstanceMap(GetId(), GetGridExpiry(), InstanceId, difficulty, this);
     ASSERT(map->IsDungeon());
@@ -199,7 +187,7 @@ BattleGroundMap* MapInstanced::CreateBattleGroundMap(uint32 InstanceId, BattleGr
     // load/create a map
     Guard guard(*this);
 
-    sLog.outDebug("MapInstanced::CreateBattleGroundMap: instance:%d for map:%d and bgType:%d created.", InstanceId, GetId(), bg->GetTypeID());
+    DEBUG_LOG("MapInstanced::CreateBattleGroundMap: instance:%d for map:%d and bgType:%d created.", InstanceId, GetId(), bg->GetTypeID());
 
     PvPDifficultyEntry const* bracketEntry = GetBattlegroundBracketByLevel(bg->GetMapId(),bg->GetMinLevel());
 

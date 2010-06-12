@@ -95,7 +95,6 @@ class MANGOS_DLL_SPEC Aura
         void HandleAuraHover(bool Apply, bool Real);
         void HandleAddModifier(bool Apply, bool Real);
 
-        void HandleAddTargetTrigger(bool Apply, bool Real);
         void HandleAuraModStun(bool Apply, bool Real);
         void HandleModDamageDone(bool Apply, bool Real);
         void HandleAuraUntrackable(bool Apply, bool Real);
@@ -238,7 +237,7 @@ class MANGOS_DLL_SPEC Aura
         int32 GetBasePoints() const { return m_currentBasePoints; }
 
         int32 GetAuraMaxDuration() const { return m_maxduration; }
-        void SetAuraMaxDuration(int32 duration) { m_maxduration = duration; }
+        void SetAuraMaxDuration(int32 duration);
         int32 GetAuraDuration() const { return m_duration; }
         void SetAuraDuration(int32 duration) { m_duration = duration; }
         time_t GetAuraApplyTime() const { return m_applyTime; }
@@ -253,8 +252,8 @@ class MANGOS_DLL_SPEC Aura
         {
             m_caster_guid = caster_guid;
             m_modifier.m_amount = damage;
-            m_maxduration = maxduration;
-            m_duration = duration;
+            SetAuraMaxDuration(maxduration);
+            SetAuraDuration(duration);
             m_procCharges = charges;
 
             if(uint32 maxticks = GetAuraMaxTicks())
@@ -374,7 +373,7 @@ class MANGOS_DLL_SPEC Aura
         uint64 m_castItemGuid;                              // it is NOT safe to keep a pointer to the item because it may get deleted
         time_t m_applyTime;
 
-        int32 m_currentBasePoints;                          // cache SpellEntry::EffectBasePoints and use for set custom base points
+        int32 m_currentBasePoints;                          // cache SpellEntry::CalculateSimpleValue and use for set custom base points
         int32 m_maxduration;                                // Max aura duration
         int32 m_duration;                                   // Current time
         int32 m_timeCla;                                    // Timer for power per sec calcultion

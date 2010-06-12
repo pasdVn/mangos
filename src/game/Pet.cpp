@@ -306,7 +306,7 @@ bool Pet::LoadPetFromDB( Player* owner, uint32 petentry, uint32 petnumber, bool 
     _LoadSpellCooldowns();
 
     owner->SetPet(this);                                    // in DB stored only full controlled creature
-    sLog.outDebug("New Pet has guid %u", GetGUIDLow());
+    DEBUG_LOG("New Pet has guid %u", GetGUIDLow());
 
     if (owner->GetTypeId() == TYPEID_PLAYER)
     {
@@ -466,7 +466,7 @@ void Pet::setDeathState(DeathState s)                       // overwrite virtual
             SetUInt32Value( UNIT_DYNAMIC_FLAGS, 0x00 );
             RemoveFlag (UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
 
-             //lose happiness when died and not in BG/Arena
+            //lose happiness when died and not in BG/Arena
             MapEntry const* mapEntry = sMapStore.LookupEntry(GetMapId());
             if(!mapEntry || (mapEntry->map_type != MAP_ARENA && mapEntry->map_type != MAP_BATTLEGROUND))
                 ModifyPower(POWER_HAPPINESS, -HAPPINESS_LEVEL_SIZE);
@@ -492,7 +492,7 @@ void Pet::Update(uint32 diff)
         {
             if( m_deathTimer <= diff )
             {
-                assert(getPetType()!=SUMMON_PET && "Must be already removed.");
+                ASSERT(getPetType()!=SUMMON_PET && "Must be already removed.");
                 Remove(PET_SAVE_NOT_IN_SLOT);               //hunters' pets never get removed because of death, NEVER!
                 return;
             }
@@ -766,7 +766,7 @@ bool Pet::CreateBaseAtCreature(Creature* creature)
 
     uint32 guid = creature->GetMap()->GenerateLocalLowGuid(HIGHGUID_PET);
 
-    sLog.outBasic("Create pet");
+    BASIC_LOG("Create pet");
     uint32 pet_number = sObjectMgr.GeneratePetNumber();
     if(!Create(guid, creature->GetMap(), creature->GetPhaseMask(), creature->GetEntry(), pet_number))
         return false;
@@ -820,7 +820,7 @@ bool Pet::CreateBaseAtCreature(Creature* creature)
 bool Pet::InitStatsForLevel(uint32 petlevel, Unit* owner)
 {
     CreatureInfo const *cinfo = GetCreatureInfo();
-    assert(cinfo);
+    ASSERT(cinfo);
 
     if (!owner)
     {
@@ -914,13 +914,13 @@ bool Pet::InitStatsForLevel(uint32 petlevel, Unit* owner)
                     statBonus[STAT_STAMINA] = owner->GetStat(STAT_STAMINA) * 0.3f;
                     statBonus[STAT_INTELLECT] = owner->GetStat(STAT_INTELLECT) * 0.3f;
                     armorBonus = owner->GetArmor() * 0.35f;
-                    bonusDamage = owner->SpellBaseDamageBonus(SPELL_SCHOOL_MASK_FROST) * 0.4f;
+                    bonusDamage = owner->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_FROST) * 0.4f;
                     break;
                 }
                 // priest's Shadowfiend
                 case 19668:
                 {
-                    apBonus = owner->SpellBaseDamageBonus(SPELL_SCHOOL_MASK_SHADOW) * 0.565f;
+                    apBonus = owner->SpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_SHADOW) * 0.565f;
                     break;
                 }
                 // Feral Spirit Wolves
@@ -942,7 +942,7 @@ bool Pet::InitStatsForLevel(uint32 petlevel, Unit* owner)
                 // Mirror Image
                 case 31216:
                 {
-                    bonusDamage = owner->GetMaxSpellBaseDamageBonus(SPELL_SCHOOL_MASK_MAGIC);
+                    bonusDamage = owner->GetMaxSpellBaseDamageBonusDone(SPELL_SCHOOL_MASK_MAGIC);
                     break;
                 }
                 default:
@@ -1063,11 +1063,11 @@ void Pet::_LoadSpellCooldowns()
                 continue;
 
             data << uint32(spell_id);
-            data << uint32(uint32(db_time-curTime)*IN_MILISECONDS);
+            data << uint32(uint32(db_time-curTime)*IN_MILLISECONDS);
 
             _AddCreatureSpellCooldown(spell_id,db_time);
 
-            sLog.outDebug("Pet (Number: %u) spell %u cooldown loaded (%u secs).", m_charmInfo->GetPetNumber(), spell_id, uint32(db_time-curTime));
+            DEBUG_LOG("Pet (Number: %u) spell %u cooldown loaded (%u secs).", m_charmInfo->GetPetNumber(), spell_id, uint32(db_time-curTime));
         }
         while( result->NextRow() );
 
@@ -1184,10 +1184,10 @@ void Pet::_LoadAuras(uint32 timediff)
             // negative effects should continue counting down after logout
             if (remaintime != -1 && !IsPositiveEffect(spellid, effindex))
             {
-                if (remaintime/IN_MILISECONDS <= int32(timediff))
+                if (remaintime/IN_MILLISECONDS <= int32(timediff))
                     continue;
 
-                remaintime -= timediff*IN_MILISECONDS;
+                remaintime -= timediff*IN_MILLISECONDS;
             }
 
             // prevent wrong values of remaincharges
@@ -1197,7 +1197,7 @@ void Pet::_LoadAuras(uint32 timediff)
                     remaincharges = spellproto->procCharges;
             }
             else
-                remaincharges = -1;
+                remaincharges = 0;
 
             /// do not load single target auras (unless they were cast by the player)
             if (caster_guid != GetGUID() && IsSingleTargetSpell(spellproto))
@@ -1389,11 +1389,8 @@ bool Pet::addSpell(uint32 spell_id,ActiveStates active /*= ACT_DECIDE*/, PetSpel
     uint32 talentCost = GetTalentSpellCost(spell_id);
     if (talentCost)
     {
-        int32 free_points = GetMaxTalentPointsForLevel(getLevel());
         m_usedTalentCount+=talentCost;
-        // update free talent points
-        free_points-=m_usedTalentCount;
-        SetFreeTalentPoints(free_points > 0 ? free_points : 0);
+        UpdateFreeTalentPoints(false);
     }
     return true;
 }
@@ -1502,9 +1499,8 @@ bool Pet::removeSpell(uint32 spell_id, bool learn_prev, bool clear_ab)
             m_usedTalentCount-=talentCost;
         else
             m_usedTalentCount = 0;
-        // update free talent points
-        int32 free_points = GetMaxTalentPointsForLevel(getLevel()) - m_usedTalentCount;
-        SetFreeTalentPoints(free_points > 0 ? free_points : 0);
+
+        UpdateFreeTalentPoints(false);
     }
 
     if (learn_prev)
@@ -1575,7 +1571,7 @@ bool Pet::resetTalents(bool no_cost)
 
     if (m_usedTalentCount == 0)
     {
-        SetFreeTalentPoints(talentPointsForLevel);
+        UpdateFreeTalentPoints(false);                      // for fix if need counter
         return false;
     }
 
@@ -1608,31 +1604,11 @@ bool Pet::resetTalents(bool no_cost)
             continue;
 
         for (int j = 0; j < MAX_TALENT_RANK; j++)
-        {
-            for(PetSpellMap::const_iterator itr = m_spells.begin(); itr != m_spells.end();)
-            {
-                if(itr->second.state == PETSPELL_REMOVED)
-                {
-                    ++itr;
-                    continue;
-                }
-                // remove learned spells (all ranks)
-                uint32 itrFirstId = sSpellMgr.GetFirstSpellInChain(itr->first);
-
-                // unlearn if first rank is talent or learned by talent
-                if (itrFirstId == talentInfo->RankID[j] || sSpellMgr.IsSpellLearnToSpell(talentInfo->RankID[j],itrFirstId))
-                {
-                    removeSpell(itr->first,false);
-                    itr = m_spells.begin();
-                    continue;
-                }
-                else
-                    ++itr;
-            }
-        }
+            if (talentInfo->RankID[j])
+                removeSpell(talentInfo->RankID[j],!IsPassiveSpell(talentInfo->RankID[j]),false);
     }
 
-    SetFreeTalentPoints(talentPointsForLevel);
+    UpdateFreeTalentPoints(false);
 
     if(!no_cost)
     {
@@ -1729,17 +1705,33 @@ void Pet::resetTalentsForAllPetsOf(Player* owner, Pet* online_pet /*= NULL*/)
     CharacterDatabase.Execute(ss.str().c_str());
 }
 
-void Pet::InitTalentForLevel()
+void Pet::UpdateFreeTalentPoints(bool resetIfNeed)
 {
     uint32 level = getLevel();
     uint32 talentPointsForLevel = GetMaxTalentPointsForLevel(level);
     // Reset talents in case low level (on level down) or wrong points for level (hunter can unlearn TP increase talent)
-    if(talentPointsForLevel == 0 || m_usedTalentCount > talentPointsForLevel)
+    if (talentPointsForLevel == 0 || m_usedTalentCount > talentPointsForLevel)
     {
-        // Remove all talent points
-        resetTalents(true);
+        // Remove all talent points (except for admin pets)
+        if (resetIfNeed)
+        {
+            Unit *owner = GetOwner();
+            if (!owner || owner->GetTypeId() != TYPEID_PLAYER || ((Player*)owner)->GetSession()->GetSecurity() < SEC_ADMINISTRATOR)
+                resetTalents(true);
+            else
+                SetFreeTalentPoints(0);
+        }
+        else
+            SetFreeTalentPoints(0);
     }
-    SetFreeTalentPoints(talentPointsForLevel - m_usedTalentCount);
+    else
+        SetFreeTalentPoints(talentPointsForLevel - m_usedTalentCount);
+}
+
+
+void Pet::InitTalentForLevel()
+{
+    UpdateFreeTalentPoints();
 
     Unit *owner = GetOwner();
     if (!owner || owner->GetTypeId() != TYPEID_PLAYER)
@@ -1932,7 +1924,7 @@ void Pet::UpdateScalingAuras()
     {
         SpellEntry const* spellInfo = (*itr)->GetSpellProto();
         // check if we need to update aura
-        int32 amount = CalculateSpellDamage(spellInfo, (*itr)->GetEffIndex(), 0 ,this);
+        int32 amount = CalculateSpellDamage(this, spellInfo, (*itr)->GetEffIndex());
         if ((*itr)->GetModifier()->m_amount == amount)
             continue;
 
@@ -1978,7 +1970,7 @@ uint32 Pet::CalcScalingAuraBonus(SpellEntry const* spellInfo, uint8 effect_index
                 // warlock pet scaling aura
                 case 34947:
                 {
-                    ownerValue = owner->GetMaxSpellBaseDamageBonus(SpellSchoolMask(SPELL_SCHOOL_MASK_FIRE | SPELL_SCHOOL_MASK_SHADOW));
+                    ownerValue = owner->GetMaxSpellBaseDamageBonusDone(SpellSchoolMask(SPELL_SCHOOL_MASK_FIRE | SPELL_SCHOOL_MASK_SHADOW));
                     scale = 0.15f;
                     break;
                 }
@@ -2096,7 +2088,7 @@ uint32 Pet::CalcScalingAuraBonus(SpellEntry const* spellInfo, uint8 effect_index
                 // warlock pet scaling aura
                 case 34947:
                 {
-                    ownerValue = owner->GetMaxSpellBaseDamageBonus(SpellSchoolMask(SPELL_SCHOOL_MASK_FIRE | SPELL_SCHOOL_MASK_SHADOW));
+                    ownerValue = owner->GetMaxSpellBaseDamageBonusDone(SpellSchoolMask(SPELL_SCHOOL_MASK_FIRE | SPELL_SCHOOL_MASK_SHADOW));
                     scale = 0.57f;
                     break;
                 }
@@ -2146,7 +2138,7 @@ uint32 Pet::CalcScalingAuraBonus(SpellEntry const* spellInfo, uint8 effect_index
             scale = 1.0f;
             break;
         }
-        case SPELL_AURA_MELEE_SLOW:
+        case SPELL_AURA_HASTE_MELEE:
         {
             // find owners maximum haste (== minimum speedPct factor)
             float cur = 1.0f, factor[3] = {owner->m_modAttackSpeedPct[BASE_ATTACK], m_modAttackSpeedPct[RANGED_ATTACK], owner->GetFloatValue(UNIT_MOD_CAST_SPEED)};
